@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>АВЛ-дерево по шагам</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">АВЛ-дерево</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Построение АВЛ-дерева по шагам</h1>
+  <p class="lead">При каждой вставке пересчитываются балансы на пути от нового листа к корню. Как только баланс становится равным ±2, выполняется поворот. Баланс здесь считается как <b>bal = h(правого) − h(левого)</b>, как в учебной реализации на C.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Буквы в порядке вставки</label>
+        <input id="inp" value="ABCDEFG" autocomplete="off" spellcheck="false" placeholder="Например: ABCDEFG">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Повторяющиеся буквы пропускаются. До 24 ключей. Возрастающий порядок специально вызывает много поворотов.</div>
+  </section>
+
+  <div id="stage"></div>
+
+  <div class="card">
+    <h2>Четыре случая поворота</h2>
+    <div class="cases">
+      <div class="case" id="c-LL"><b>LL — правый поворот</b>Перевес влево-влево: bal(P)=−2, bal(Q)=−1. Q поднимается, P становится его правым ребёнком, бывшее правое поддерево Q переходит к P как левое.</div>
+      <div class="case" id="c-RR"><b>RR — левый поворот</b>Зеркально LL: bal(P)=+2, bal(Q)=+1. Q поднимается, P — его левый ребёнок, бывшее левое поддерево Q становится правым поддеревом P.</div>
+      <div class="case" id="c-LR"><b>LR — двойной поворот</b>Перевес влево-вправо: bal(P)=−2, bal(Q)=+1. Сначала левый поворот вокруг Q, затем правый вокруг P. R — правый ребёнок Q — становится корнем.</div>
+      <div class="case" id="c-RL"><b>RL — двойной поворот</b>Зеркально LR: bal(P)=+2, bal(Q)=−1. Сначала правый поворот вокруг Q, затем левый вокруг P. R — левый ребёнок Q — становится корнем.</div>
+    </div>
+  </div>
+
+  <nav class="pager">
+    <a href="sdp.html">← СДП</a>
+    <a href="avl-delete.html">Удаление из АВЛ-дерева →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, seq = 0, steps = [], rotations = 0;
+  const mk = d => ({id:++seq, d, b:0, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ok)"></i>новый узел</span><span><i class="dot" style="background:var(--bad)"></i>нарушен баланс</span><span><i class="dot" style="background:var(--ac)"></i>участвует в повороте (P, Q, R)</span>',
+    render(canvas, step){
+      canvas.classList.toggle('compact', !step.tree);
+      canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
+      S.renderBinary(canvas.querySelector('.tree-host'), step, {showBal:true});
+    },
+    onStep(step){
+      ['LL', 'RR', 'LR', 'RL'].forEach(k => {
+        const el = $('c-' + k);
+        if(el) el.classList.toggle('on', step.rot === k);
+      });
+    }
+  });
+
+  function snap(title, text, extra){
+    steps.push(Object.assign({title, text, tree:S.clone(root)}, extra || {}));
+  }
+
+  function build(){
+    const parsed = S.parseKeys($('inp').value, 24);
+    const chars = parsed.keys;
+    seq = 0; root = null; steps = []; rotations = 0;
+    if(!chars.length){
+      player.setSteps([{title:'Пусто', text:'Введите символы и нажмите «Построить».', tree:null}]);
+      return;
+    }
+    snap('Пустое дерево',
+      `Вставляем ключи по одному: <b>${chars.map(S.esc).join(' → ')}</b>.${parsed.dups ? ` Повторов отброшено: ${parsed.dups}.` : ''}<span class="l">После каждой вставки идём от листа вверх и обновляем балансы, пока не дойдём до корня или не встретим нарушение.</span>`,
+      {});
+
+    for(const ch of chars){
+      if(!root){
+        root = mk(ch);
+        snap(`Вставка «${ch}»`,
+          `Дерево пустое — «${S.esc(ch)}» становится корнем, баланс 0.`,
+          {newId:root.id});
+        continue;
+      }
+
+      let t = root, path = [], cmp = [], duplicate = false;
+      while(true){
+        if(ch === t.d){ duplicate = true; break; }
+        const dir = ch < t.d ? -1 : 1;
+        cmp.push(`${S.esc(ch)} ${dir < 0 ? '&lt;' : '&gt;'} ${S.esc(t.d)} → ${dir < 0 ? 'влево' : 'вправо'}`);
+        path.push({n:t, dir});
+        const next = dir < 0 ? t.l : t.r;
+        if(!next) break;
+        t = next;
+      }
+      if(duplicate){
+        snap(`«${ch}» уже есть`,
+          `Ключ «${S.esc(ch)}» найден по пути вставки — дубликаты не добавляем, балансы не меняются.`,
+          {});
+        continue;
+      }
+
+      const dir = ch < t.d ? -1 : 1;
+      const node = mk(ch);
+      if(dir < 0) t.l = node; else t.r = node;
+
+      const log = [];
+      let rot = null;
+      for(let i = path.length - 1; i >= 0; i--){
+        const p = path[i].n, goLeft = path[i].dir < 0;
+        const old = p.b, P = S.esc(p.d);
+        if(goLeft){
+          if(p.b > 0){
+            p.b = 0;
+            log.push(`${P}: bal ${S.fmtBal(old)} → 0 — высота поддерева не изменилась, стоп.`);
+            break;
+          }
+          if(p.b === 0){
+            p.b = -1;
+            log.push(`${P}: bal 0 → −1 — поддерево выросло, идём выше.`);
+            if(i === 0) log.push('Дошли до корня: высота всего дерева выросла.');
+            continue;
+          }
+        } else {
+          if(p.b < 0){
+            p.b = 0;
+            log.push(`${P}: bal ${S.fmtBal(old)} → 0 — высота поддерева не изменилась, стоп.`);
+            break;
+          }
+          if(p.b === 0){
+            p.b = 1;
+            log.push(`${P}: bal 0 → +1 — поддерево выросло, идём выше.`);
+            if(i === 0) log.push('Дошли до корня: высота всего дерева выросла.');
+            continue;
+          }
+        }
+        rot = {i, p, dir:path[i].dir};
+        p.b = path[i].dir * 2;
+        log.push(`<b>${P}: bal ${S.fmtBal(old)} → ${S.fmtBal(p.b)} — нарушение АВЛ-условия!</b>`);
+        break;
+      }
+
+      const head = `Путь: ${cmp.join('; ')}.`;
+      const logHTML = '<span class="l">' + log.join('<br>') + '</span>';
+
+      if(!rot){
+        snap(`Вставка «${ch}»`,
+          `${head}<br>Новый лист добавлен. Пересчёт балансов вверх по пути:${logHTML}<span class="l">Нарушений нет — поворот не нужен.</span>`,
+          {newId:node.id});
+        continue;
+      }
+
+      const p = rot.p, q = rot.dir < 0 ? p.l : p.r;
+      let kind, r = null;
+      if(rot.dir < 0) kind = q.b < 0 ? 'LL' : 'LR';
+      else kind = q.b > 0 ? 'RR' : 'RL';
+      if(kind === 'LR') r = q.r;
+      if(kind === 'RL') r = q.l;
+      const tags = {[p.id]:'P', [q.id]:'Q'};
+      if(r) tags[r.id] = 'R';
+      const P = S.esc(p.d), Q = S.esc(q.d), R = r ? S.esc(r.d) : '';
+      const why = {
+        LL:`Левый ребёнок Q=«${Q}» перевешивает влево (bal=${S.fmtBal(q.b)}): вставка ушла в левое поддерево левого потомка — случай <b>LL</b>.`,
+        RR:`Правый ребёнок Q=«${Q}» перевешивает вправо (bal=${S.fmtBal(q.b)}): вставка ушла в правое поддерево правого потомка — случай <b>RR</b>.`,
+        LR:`Левый ребёнок Q=«${Q}» перевешивает вправо (bal=${S.fmtBal(q.b)}): вставка ушла в правое поддерево левого потомка — случай <b>LR</b>. Нужен двойной поворот через R=«${R}».`,
+        RL:`Правый ребёнок Q=«${Q}» перевешивает влево (bal=${S.fmtBal(q.b)}): вставка ушла в левое поддерево правого потомка — случай <b>RL</b>. Нужен двойной поворот через R=«${R}».`
+      }[kind];
+
+      snap(`Вставка «${ch}»: баланс нарушен в «${P}»`,
+        `${head}<br>Пересчёт балансов:${logHTML}<br>${why} Узел P=«${P}» — первый неуравновешенный снизу.`,
+        {newId:node.id, bad:p.id, tags, rot:kind});
+
+      let nr;
+      if(kind === 'LL'){ p.b = 0; q.b = 0; p.l = q.r; q.r = p; nr = q; }
+      else if(kind === 'RR'){ p.b = 0; q.b = 0; p.r = q.l; q.l = p; nr = q; }
+      else if(kind === 'LR'){ p.b = r.b < 0 ? 1 : 0; q.b = r.b > 0 ? -1 : 0; r.b = 0; q.r = r.l; p.l = r.r; r.l = q; r.r = p; nr = r; }
+      else { p.b = r.b > 0 ? -1 : 0; q.b = r.b < 0 ? 1 : 0; r.b = 0; p.r = r.l; q.l = r.r; r.l = p; r.r = q; nr = r; }
+      if(rot.i === 0) root = nr;
+      else{
+        const g = path[rot.i - 1];
+        if(g.dir < 0) g.n.l = nr; else g.n.r = nr;
+      }
+      rotations++;
+
+      const how = {
+        LL:`Правый поворот вокруг P: Q=«${Q}» становится корнем поддерева, P=«${P}» — его правым ребёнком, правое поддерево Q переходит к P слева. Балансы P и Q обнуляются.`,
+        RR:`Левый поворот вокруг P: Q=«${Q}» становится корнем поддерева, P=«${P}» — его левым ребёнком, левое поддерево Q переходит к P справа. Балансы P и Q обнуляются.`,
+        LR:`Двойной поворот: 1) левый вокруг Q=«${Q}» — R поднимается на место Q; 2) правый вокруг P=«${P}». Итог: R=«${R}» — корень, Q — его левый, P — правый ребёнок. Балансы Q и P зависят от прежнего bal(R).`,
+        RL:`Двойной поворот: 1) правый вокруг Q=«${Q}»; 2) левый вокруг P=«${P}». Итог: R=«${R}» — корень, P — его левый, Q — правый ребёнок. Балансы P и Q зависят от прежнего bal(R).`
+      }[kind];
+      snap(`После поворота ${kind}`,
+        `${how}<span class="l">Высота поддерева вернулась к прежней, поэтому выше балансы уже не меняются.</span>`,
+        {newId:node.id, tags:Object.assign({}, tags), rot:kind});
+    }
+
+    const h = S.height(root);
+    snap('Готово: АВЛ-дерево построено',
+      `Высота <b>H = ${h}</b>, средняя глубина <b>${S.avgDepth(root).toFixed(2)}</b>, поворотов выполнено: <b>${rotations}</b>.<span class="l">У каждого узла |bal| ≤ 1 — дерево сбалансировано. Высота АВЛ-дерева не превышает 1.44·log₂(n+2).</span>`,
+      {});
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('ex').onclick = () => { $('inp').value = 'KDBACFGE'; build(); };
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

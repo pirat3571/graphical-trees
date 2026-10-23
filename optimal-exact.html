@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Оптимальное дерево поиска — точный алгоритм</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">Оптимальное дерево — точно</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Оптимальное дерево поиска: точный алгоритм</h1>
+  <p class="lead">Каждому ключу задан вес (частота обращения). Нужно построить двоичное дерево поиска с минимальной суммарной стоимостью поиска. Точный алгоритм — динамическое программирование: для каждого отрезка ключей перебираются все варианты корня, а результаты меньших отрезков уже известны.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="keys">Ключи (буквы)</label>
+        <input id="keys" value="A B C D E" autocomplete="off" spellcheck="false" placeholder="Например: A B C D E">
+      </div>
+      <div class="field">
+        <label for="weights">Веса через пробел</label>
+        <input id="weights" value="10 5 2 1 7" autocomplete="off" spellcheck="false" placeholder="Например: 10 5 2 1 7">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="msg" id="msg" style="margin-top:9px"></div>
+  </section>
+
+  <div id="stage"></div>
+
+  <div class="card">
+    <h2>Таблица динамического программирования</h2>
+    <div class="meta">C[i,j] — минимальная стоимость дерева для ключей i…j; под числом указан выбранный корень. W(i,j) — сумма весов отрезка.</div>
+    <div id="dp"></div>
+  </div>
+
+  <details>
+    <summary>Формула и почему алгоритм точный</summary>
+    <p>Для отрезка ключей <code>i…j</code> обозначим <code>W(i,j)</code> сумму их весов. Если корнем выбрать ключ <code>r</code>, его вес войдёт в стоимость один раз, а все ключи левого и правого поддеревьев опустятся на уровень ниже — то есть добавят ещё <code>W(i,j)</code>. Поэтому</p>
+    <p><code>C[i,j] = W(i,j) + min<sub>i≤r≤j</sub> ( C[i,r−1] + C[r+1,j] )</code>, где <code>C[i,i−1]=0</code>.</p>
+    <p>Ячейки заполняются по возрастанию длины отрезка. Оптимальная стоимость — <code>C[0,n−1]</code>, а выбранные корни <code>R[i,j]</code> позволяют восстановить само дерево. Сложность — <code>O(n³)</code>, поэтому точный алгоритм применяют при небольших n.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="btree.html">← B-дерево</a>
+    <a href="optimal-approx.html">Приближённые алгоритмы →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let keys = [], weights = [], weightMap = {}, seq = 0, root = null;
+  const mk = d => ({id:++seq, d, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ok)"></i>созданный узел</span><span><i class="dot" style="background:var(--ac)"></i>границы текущего отрезка</span><span>под узлом — вес ключа</span>',
+    render(canvas, step){
+      canvas.classList.toggle('compact', !step.tree);
+      canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
+      const host = canvas.querySelector('.tree-host');
+      if(step.tree) S.renderBinary(host, step, {showBal:false, weightMap});
+      else host.innerHTML = '';
+    },
+    onStep(step){
+      const dp = step.dp;
+      if(dp && keys.length) S.renderDPTable($('dp'), {keys, C:dp.C, R:dp.R, n:keys.length, cur:step.curCell});
+      else $('dp').innerHTML = '';
+    }
+  });
+
+  function readInput(){
+    const raw = [...String($('keys').value)].filter(c => !/[\s,;]/.test(c));
+    const w = String($('weights').value).trim().split(/[\s,;]+/).filter(Boolean).map(Number);
+    if(!raw.length) return {error:'Введите хотя бы один ключ.'};
+    if(raw.length > 10) return {error:'Для таблицы DP допускается не больше 10 ключей.'};
+    if(new Set(raw).size !== raw.length) return {error:'Ключи не должны повторяться.'};
+    if(w.length !== raw.length) return {error:`Ключей ${raw.length}, а весов ${w.length}. Введите по одному весу на каждый ключ.`};
+    if(w.some(x => !Number.isFinite(x) || x < 0)) return {error:'Веса должны быть неотрицательными числами.'};
+    const pairs = raw.map((k, i) => ({k, w:w[i]})).sort((a, b) => a.k.codePointAt(0) - b.k.codePointAt(0));
+    return {keys:pairs.map(p => p.k), weights:pairs.map(p => p.w)};
+  }
+
+  function build(){
+    const input = readInput();
+    const msg = $('msg');
+    if(input.error){
+      msg.className = 'msg bad';
+      msg.textContent = input.error;
+      keys = []; weights = []; weightMap = {};
+      $('dp').innerHTML = '';
+      player.setSteps([{title:'Проверьте ввод', text:S.esc(input.error), tree:null}]);
+      return;
+    }
+    msg.className = 'msg';
+    msg.innerHTML = `Ключи отсортированы: <b>${input.keys.map(S.esc).join(' ')}</b>. Суммарный вес: <b>${input.weights.reduce((a, b) => a + b, 0)}</b>.`;
+    keys = input.keys; weights = input.weights;
+    weightMap = {};
+    keys.forEach((k, i) => { weightMap[k] = weights[i]; });
+
+    const n = keys.length;
+    const C = Array.from({length:n}, () => Array(n).fill(null));
+    const R = Array.from({length:n}, () => Array(n).fill(null));
+    const pref = [0];
+    for(let i = 0; i < n; i++) pref.push(pref[i] + weights[i]);
+    const W = (i, j) => pref[j + 1] - pref[i];
+    const steps = [];
+    const items = keys.map((k, i) => ({k, w:weights[i]}));
+    const emptyDP = () => ({C:C.map(r => r.slice()), R:R.map(r => r.slice())});
+
+    steps.push({
+      title:'Шаг 0. Подготовка',
+      text:`Ключи упорядочены по возрастанию: <b>${keys.map(S.esc).join(' ')}</b>; веса: <b>${weights.join(' ')}</b>.<span class="l">Заполняем таблицу C по возрастанию длины отрезка. Для пустого отрезка стоимость равна 0.</span>`,
+      strip:S.strip(items),
+      tree:null,
+      dp:emptyDP()
+    });
+
+    for(let len = 1; len <= n; len++){
+      for(let i = 0; i + len - 1 < n; i++){
+        const j = i + len - 1;
+        const sum = W(i, j);
+        let best = Infinity, bestR = i;
+        const cands = [];
+        for(let r = i; r <= j; r++){
+          const left = r > i ? C[i][r - 1] : 0;
+          const right = r < j ? C[r + 1][j] : 0;
+          const val = sum + left + right;
+          cands.push({r, left, right, val});
+          if(val < best){ best = val; bestR = r; }
+        }
+        C[i][j] = best; R[i][j] = bestR;
+        const lines = cands.map(c =>
+          `Корень «${S.esc(keys[c.r])}»: W=${sum} + C[${i},${c.r - 1}]=${c.left} + C[${c.r + 1},${j}]=${c.right} → <b>${c.val}</b>${c.val === best ? ' ← минимум' : ''}`
+        );
+        steps.push({
+          title:`DP: отрезок [${i}..${j}] (длина ${len})`,
+          text:`W(${i},${j}) = <b>${sum}</b>. Перебираем возможные корни:<span class="l">${lines.join('<br>')}</span><br>Выбираем «<b>${S.esc(keys[bestR])}</b>»: C[${i},${j}] = <b>${best}</b>, R[${i},${j}] = ${bestR}.`,
+          strip:S.strip(items, {lo:i, hi:j, mid:bestR}),
+          tree:null,
+          dp:{C:C.map(r => r.slice()), R:R.map(r => r.slice())},
+          curCell:[i, j]
+        });
+      }
+    }
+
+    const finalDP = {C:C.map(r => r.slice()), R:R.map(r => r.slice())};
+    steps.push({
+      title:'Таблица заполнена',
+      text:`Минимальная стоимость поиска C[0,${n - 1}] = <b>${C[0][n - 1]}</b>. Корень всего дерева — «<b>${S.esc(keys[R[0][n - 1]])}</b>».<span class="l">Теперь по таблице R восстанавливаем структуру дерева: R[i,j] — оптимальный корень отрезка [i..j].</span>`,
+      strip:S.strip(items),
+      tree:null,
+      dp:finalDP
+    });
+
+    seq = 0; root = null;
+    function restore(i, j, parent, dir, depth){
+      if(i > j) return;
+      const r = R[i][j];
+      const node = mk(keys[r]);
+      if(parent){ if(dir < 0) parent.l = node; else parent.r = node; } else root = node;
+      const where = parent ? (dir < 0 ? 'левым потомком' : 'правым потомком') : 'корнем дерева';
+      steps.push({
+        title:`Восстановление: узел «${keys[r]}»`,
+        text:`Для отрезка [${i}..${j}] таблица даёт корень r=${r} — «<b>${S.esc(keys[r])}</b>» (вес ${weights[r]}).<span class="l">Он становится ${where} на глубине ${depth}. Слева строим [${i}..${r - 1}], справа — [${r + 1}..${j}].</span>`,
+        strip:S.strip(items, {lo:i, hi:j, mid:r}),
+        tree:S.clone(root),
+        newId:node.id,
+        dp:finalDP,
+        curCell:[i, j]
+      });
+      restore(i, r - 1, node, -1, depth + 1);
+      restore(r + 1, j, node, 1, depth + 1);
+    }
+    restore(0, n - 1, null, 0, 0);
+
+    const realCost = S.weightedCost(root, weightMap);
+    steps.push({
+      title:'Готово: оптимальное дерево построено',
+      text:`Стоимость C[0,${n - 1}] = <b>${C[0][n - 1]}</b>; проверка по дереву: Σ w<sub>i</sub>·(глубина<sub>i</sub>+1) = <b>${realCost}</b>. Высота H = <b>${S.height(root)}</b>, средняя глубина <b>${S.avgDepth(root).toFixed(2)}</b>.<span class="l">Для заданных весов дерево оптимально: ни один другой двоичный вид дерева поиска не даёт меньшей суммарной стоимости.</span>`,
+      strip:S.strip(items, {done:keys.map((_, i) => i)}),
+      tree:S.clone(root),
+      dp:finalDP
+    });
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('ex').onclick = () => { $('keys').value = 'A B C D E F'; $('weights').value = '5 2 10 1 7 3'; build(); };
+  $('keys').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('weights').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

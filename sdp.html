@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>СДП — случайное дерево поиска</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">СДП</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>СДП: случайное дерево поиска</h1>
+  <p class="lead">Случайное дерево поиска — это обычное двоичное дерево поиска, которое строится вставкой ключей в случайном порядке. Форма дерева зависит от порядка вставки: удачный порядок даёт невысокое дерево, неудачный — вырожденное в список.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Буквы в порядке вставки</label>
+        <input id="inp" value="KDBACFGE" autocomplete="off" spellcheck="false" placeholder="Например: KDBACFGE">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="sh" type="button">Перемешать</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Сравнение — по коду символа. Повторяющиеся буквы пропускаются. До 24 ключей.</div>
+  </section>
+
+  <div id="stage"></div>
+
+  <details>
+    <summary>Свойства случайного дерева поиска</summary>
+    <p>Для <code>n</code> ключей, вставленных в случайном порядке, средняя глубина узла составляет <code>O(log₂ n)</code>, а ожидаемая высота — около <code>4.31·log₂ n</code>. Но это средние значения: конкретный порядок может дать и список высоты <code>n</code>.</p>
+    <p>В худшем случае (возрастающие или убывающие ключи) дерево вырождается, и поиск занимает <code>O(n)</code>. Именно поэтому применяют балансировку — АВЛ-деревья и B-деревья.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="isdp.html">← ИСДП</a>
+    <a href="sdp-delete.html">Удаление из СДП →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, seq = 0;
+  const mk = d => ({id:++seq, d, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ok)"></i>новый узел</span><span><i class="dot" style="background:var(--ac)"></i>пройденные узлы (путь сравнений)</span>',
+    render(canvas, step){
+      canvas.classList.toggle('compact', !step.tree);
+      canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
+      S.renderBinary(canvas.querySelector('.tree-host'), step, {showBal:false});
+    }
+  });
+
+  function build(){
+    const parsed = S.parseKeys($('inp').value, 24);
+    const keys = parsed.keys;
+    seq = 0; root = null;
+    const steps = [];
+    if(!keys.length){
+      player.setSteps([{title:'Пусто', text:'Введите хотя бы одну букву.', tree:null}]);
+      return;
+    }
+    steps.push({
+      title:'Пустое дерево',
+      text:`Будем вставлять ключи в порядке: <b>${keys.map(S.esc).join(' → ')}</b>.${parsed.dups ? ` Повторов отброшено: ${parsed.dups}.` : ''}<span class="l">Каждый новый ключ спускается от корня: меньше текущего — влево, больше — вправо, пока не найдёт свободное место.</span>`,
+      strip:S.strip(keys),
+      tree:null
+    });
+
+    let inserts = 0;
+    for(const ch of keys){
+      if(!root){
+        root = mk(ch);
+        inserts++;
+        steps.push({
+          title:`Вставка «${ch}»`,
+          text:`Дерево пустое — «<b>${S.esc(ch)}</b>» становится корнем.<span class="l">Глубина узла 0.</span>`,
+          strip:S.strip(keys),
+          tree:S.clone(root),
+          newId:root.id
+        });
+        continue;
+      }
+      let t = root, path = [], cmp = [], duplicate = false;
+      while(true){
+        if(ch === t.d){ duplicate = true; break; }
+        const dir = ch < t.d ? -1 : 1;
+        cmp.push(`${S.esc(ch)} ${dir < 0 ? '&lt;' : '&gt;'} ${S.esc(t.d)} → ${dir < 0 ? 'влево' : 'вправо'}`);
+        path.push(t.id);
+        const next = dir < 0 ? t.l : t.r;
+        if(!next) break;
+        t = next;
+      }
+      if(duplicate){
+        steps.push({
+          title:`«${ch}» уже есть в дереве`,
+          text:`Ключ «<b>${S.esc(ch)}</b>» найден на пути вставки — дубликаты в дерево поиска не добавляем.<span class="l">Повторная вставка ничего не меняет.</span>`,
+          strip:S.strip(keys),
+          tree:S.clone(root),
+          path
+        });
+        continue;
+      }
+      const dir = ch < t.d ? -1 : 1;
+      const n = mk(ch);
+      if(dir < 0) t.l = n; else t.r = n;
+      inserts++;
+      steps.push({
+        title:`Вставка «${ch}»`,
+        text:`Сравнения: ${cmp.join('; ')}.<span class="l">Свободное место найдено: «${S.esc(ch)}» становится ${dir < 0 ? 'левым' : 'правым'} потомком «${S.esc(t.d)}». Глубина нового узла — ${path.length}.</span>`,
+        strip:S.strip(keys),
+        tree:S.clone(root),
+        newId:n.id,
+        path
+      });
+    }
+
+    const h = S.height(root);
+    const avg = S.avgDepth(root);
+    const ideal = Math.ceil(Math.log2(keys.length + 1));
+    const cost = (function(){
+      let s = 0;
+      (function walk(n, d){ if(!n) return; s += d + 1; walk(n.l, d + 1); walk(n.r, d + 1); })(root, 0);
+      return s;
+    })();
+    steps.push({
+      title:'Готово: случайное дерево построено',
+      text:`Вставлено ключей: <b>${inserts}</b>. Высота <b>H = ${h}</b>, средняя глубина <b>${avg.toFixed(2)}</b>, суммарная длина поиска <b>${cost}</b>.<span class="l">Минимально возможная высота для ${keys.length} ключей — ${ideal}. ${h > ideal ? 'Дерево выше идеального — это нормально для случайной вставки.' : 'Порядок оказался удачным: дерево близко к идеальному.'}</span>`,
+      strip:S.strip(keys, {done:keys.map((_, i) => i)}),
+      tree:S.clone(root)
+    });
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('sh').onclick = () => {
+    const parsed = S.parseKeys($('inp').value, 24);
+    const a = parsed.keys.slice();
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    $('inp').value = a.join('');
+    build();
+  };
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

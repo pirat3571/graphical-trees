@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Удаление из СДП по шагам</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">Удаление из СДП</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Удаление из случайного дерева поиска</h1>
+  <p class="lead">Сначала дерево строится по первому набору букв, затем из него по очереди удаляются ключи из второго поля. Для каждого удаления показываются поиск узла и один из трёх случаев: лист, один потомок, два потомка.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Ключи дерева (порядок вставки)</label>
+        <input id="inp" value="KDBACFGE" autocomplete="off" spellcheck="false" placeholder="Например: KDBACFGE">
+      </div>
+      <div class="field">
+        <label for="del">Удалить ключи (по порядку)</label>
+        <input id="del" value="D A" autocomplete="off" spellcheck="false" placeholder="Например: D A">
+      </div>
+      <button class="p" id="go" type="button">Построить и удалить</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Пробелы и запятые между буквами можно ставить для удобства. Если ключа нет, дерево не меняется.</div>
+  </section>
+
+  <div id="stage"></div>
+
+  <div class="card">
+    <h2>Три случая удаления</h2>
+    <div class="cases">
+      <div class="case"><b>1. Лист</b>У удаляемого узла нет потомков — просто отрезаем его от родителя.</div>
+      <div class="case"><b>2. Один потомок</b>Подставляем единственного потомка на место удалённого узла.</div>
+      <div class="case"><b>3. Два потомка</b>Находим максимум в левом поддереве (предшественника), переносим его ключ в удаляемый узел и удаляем предшественника — у него уже нет правого потомка.</div>
+    </div>
+  </div>
+
+  <nav class="pager">
+    <a href="sdp.html">← Построение СДП</a>
+    <a href="avl-delete.html">Удаление из АВЛ-дерева →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, seq = 0, steps = [];
+  const mk = d => ({id:++seq, d, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--bad)"></i>удаляемый узел</span><span><i class="dot" style="background:var(--ac)"></i>путь поиска / предшественник</span><span><i class="dot" style="background:var(--ok)"></i>перенесённое значение</span>',
+    render(canvas, step){
+      canvas.innerHTML = '<div class="tree-host"></div>';
+      S.renderBinary(canvas.querySelector('.tree-host'), step, {showBal:false});
+    }
+  });
+
+  function snap(title, text, extra){
+    steps.push(Object.assign({title, text, tree:S.clone(root)}, extra || {}));
+  }
+
+  function parseDeletes(raw){
+    return [...String(raw)].filter(c => !/[\s,;]/.test(c));
+  }
+
+  function insertAll(keys){
+    for(const ch of keys){
+      if(!root){ root = mk(ch); continue; }
+      let t = root, duplicate = false;
+      while(true){
+        if(ch === t.d){ duplicate = true; break; }
+        const dir = ch < t.d ? -1 : 1;
+        const next = dir < 0 ? t.l : t.r;
+        if(!next){
+          const n = mk(ch);
+          if(dir < 0) t.l = n; else t.r = n;
+          break;
+        }
+        t = next;
+      }
+      if(duplicate) continue;
+    }
+  }
+
+  function removeKey(key){
+    let t = root, path = [], cmp = [];
+    while(t && t.d !== key){
+      const dir = key < t.d ? -1 : 1;
+      cmp.push(`${S.esc(key)} ${dir < 0 ? '&lt;' : '&gt;'} ${S.esc(t.d)} → ${dir < 0 ? 'влево' : 'вправо'}`);
+      path.push({n:t, dir});
+      t = dir < 0 ? t.l : t.r;
+    }
+    const pathIds = path.map(p => p.n.id);
+    if(!t){
+      snap(`Удаление «${key}»: ключ не найден`,
+        `Поиск: ${cmp.join('; ') || 'дерево пусто'}.<span class="l">Ключа «${S.esc(key)}» в дереве нет — ничего не меняем.</span>`,
+        {path:pathIds});
+      return;
+    }
+    snap(`Удаление «${key}»: узел найден`,
+      `Поиск: ${cmp.join('; ')}.<span class="l">Узел «${S.esc(key)}» найден. Смотрим, сколько у него потомков.</span>`,
+      {bad:[t.id], path:pathIds});
+
+    if(t.l && t.r){
+      let y = t.l, yPath = [];
+      while(y.r){ yPath.push(y); y = y.r; }
+      const yId = y.id;
+      snap(`Случай 3: у узла «${key}» два потомка`,
+        `Заменяем узел на максимум левого поддерева — предшественника «<b>${S.esc(y.d)}</b>».<span class="l">Он больше всех ключей слева и меньше всех справа, поэтому порядок поиска сохранится. Спуск к предшественнику: ${yPath.length ? 'вправо до упора' : 'это левый потомок'}.</span>`,
+        {bad:[t.id], tags:{[yId]:'замена'}, path:pathIds.concat(yPath.map(n => n.id))});
+
+      const oldKey = t.d;
+      t.d = y.d;
+      snap(`Копируем «${y.d}» на место «${oldKey}»`,
+        `Значение «<b>${S.esc(y.d)}</b>» перенесено в узел, где был «${S.esc(oldKey)}».<span class="l">Теперь ключ «${S.esc(y.d)}» временно встречается дважды: старый узел-предшественник нужно удалить.</span>`,
+        {newId:t.id, tags:{[yId]:'удалить'}, path:pathIds.concat(yPath.map(n => n.id))});
+
+      if(yPath.length) yPath[yPath.length - 1].r = y.l;
+      else t.l = y.l;
+      snap(`Удаляем прежний узел «${y.d}»`,
+        `У предшественника не было правого потомка, поэтому его левое поддерево подставляем на место «${S.esc(y.d)}».<span class="l">Случай 3 сведён к случаю 1 или 2. Дерево снова содержит каждый ключ один раз.</span>`,
+        {path:pathIds.concat(yPath.map(n => n.id))});
+    } else if(!t.l && !t.r){
+      if(!path.length) root = null;
+      else{
+        const p = path[path.length - 1];
+        if(p.dir < 0) p.n.l = null; else p.n.r = null;
+      }
+      snap(`Случай 1: «${key}» — лист`,
+        `У узла нет потомков. Отрезаем его от родителя.<span class="l">Остальные узлы и их связи не меняются.</span>`,
+        {path:pathIds.slice(0, -1)});
+    } else {
+      const child = t.l || t.r;
+      if(!path.length) root = child;
+      else{
+        const p = path[path.length - 1];
+        if(p.dir < 0) p.n.l = child; else p.n.r = child;
+      }
+      snap(`Случай 2: у «${key}» один потомок`,
+        `На место удалённого узла подставляем его единственного потомка — «<b>${S.esc(child.d)}</b>».<span class="l">Порядок ключей сохраняется: всё поддерево потомка лежит с той же стороны от родителя.</span>`,
+        {path:pathIds.slice(0, -1)});
+    }
+  }
+
+  function build(){
+    seq = 0; root = null; steps = [];
+    const keys = S.parseKeys($('inp').value, 24).keys;
+    const dels = parseDeletes($('del').value);
+    if(!keys.length){
+      player.setSteps([{title:'Пусто', text:'Введите ключи дерева.', tree:null}]);
+      return;
+    }
+    insertAll(keys);
+    snap('Исходное дерево',
+      `Дерево построено вставкой в порядке <b>${keys.map(S.esc).join(' → ')}</b>. Высота H = ${S.height(root)}.<span class="l">Теперь удаляем ключи: ${dels.length ? dels.map(k => '«' + S.esc(k) + '»').join(', ') : 'список пуст'}.</span>`,
+      {});
+    for(const k of dels) removeKey(k);
+    const h = S.height(root);
+    const avg = S.avgDepth(root);
+    let count = 0;
+    (function walk(n){ if(!n) return; count++; walk(n.l); walk(n.r); })(root);
+    snap('Удаление завершено',
+      `В дереве осталось ключей: <b>${count}</b>, высота <b>${h}</b>, средняя глубина <b>${avg.toFixed(2)}</b>.<span class="l">Удаление в небалансированном дереве не перестраивает его: высота может остаться большой. В АВЛ-дереве после удаления выполняется балансировка.</span>`,
+      {});
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('del').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

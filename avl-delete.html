@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Удаление из АВЛ-дерева по шагам</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">Удаление из АВЛ-дерева</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Удаление из АВЛ-дерева по шагам</h1>
+  <p class="lead">Узел удаляется как в обычном дереве поиска, после чего балансы пересчитываются вверх по пути. Если где-то баланс вышел за пределы ±1, выполняется одинарный или двойной поворот. В отличие от вставки, после удаления поворот может понадобиться в нескольких узлах.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Ключи дерева (порядок вставки)</label>
+        <input id="inp" value="KDBACFGE" autocomplete="off" spellcheck="false" placeholder="Например: KDBACFGE">
+      </div>
+      <div class="field">
+        <label for="del">Удалить ключи (по порядку)</label>
+        <input id="del" value="K F" autocomplete="off" spellcheck="false" placeholder="Например: K F">
+      </div>
+      <button class="p" id="go" type="button">Построить и удалить</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Дерево строится теми же вставками с поворотами, что и на странице «АВЛ-дерево». Затем ключи удаляются по одному.</div>
+  </section>
+
+  <div id="stage"></div>
+
+  <div class="card">
+    <h2>Как выбирается поворот при удалении</h2>
+    <div class="cases">
+      <div class="case" id="c-LL"><b>LL — правый</b>bal(P) = −2, у левого ребёнка Q баланс ≤ 0. Одинарный правый поворот вокруг P.</div>
+      <div class="case" id="c-RR"><b>RR — левый</b>bal(P) = +2, у правого ребёнка Q баланс ≥ 0. Одинарный левый поворот вокруг P.</div>
+      <div class="case" id="c-LR"><b>LR — двойной</b>bal(P) = −2, у левого ребёнка Q баланс &gt; 0. Сначала левый поворот вокруг Q, затем правый вокруг P.</div>
+      <div class="case" id="c-RL"><b>RL — двойной</b>bal(P) = +2, у правого ребёнка Q баланс &lt; 0. Сначала правый вокруг Q, затем левый вокруг P.</div>
+    </div>
+  </div>
+
+  <nav class="pager">
+    <a href="avl.html">← Построение АВЛ-дерева</a>
+    <a href="btree.html">Двоичное Б-дерево поиска →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, seq = 0, steps = [], totalRot = 0;
+  const mk = d => ({id:++seq, d, b:0, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--bad)"></i>удаляемый узел / нарушение</span><span><i class="dot" style="background:var(--ok)"></i>перенесённое значение</span><span><i class="dot" style="background:var(--ac)"></i>участники поворота (P, Q, R)</span>',
+    render(canvas, step){
+      canvas.innerHTML = '<div class="tree-host"></div>';
+      S.renderBinary(canvas.querySelector('.tree-host'), step, {showBal:true});
+    },
+    onStep(step){
+      ['LL', 'RR', 'LR', 'RL'].forEach(k => {
+        const el = $('c-' + k);
+        if(el) el.classList.toggle('on', step.rot === k);
+      });
+    }
+  });
+
+  function snap(title, text, extra){
+    steps.push(Object.assign({title, text, tree:S.clone(root)}, extra || {}));
+  }
+
+  function rotate(a, kind){
+    if(kind === 'LL'){
+      const q = a.l; a.l = q.r; q.r = a; return q;
+    }
+    if(kind === 'RR'){
+      const q = a.r; a.r = q.l; q.l = a; return q;
+    }
+    if(kind === 'LR'){
+      const q = a.l, r = q.r;
+      a.l = r.r; q.r = r.l; r.r = a; r.l = q; return r;
+    }
+    const q = a.r, r = q.l;
+    a.r = r.l; q.l = r.r; r.l = a; r.r = q; return r;
+  }
+
+  function insertAVL(ch){
+    if(!root){ root = mk(ch); return; }
+    let t = root, path = [], duplicate = false;
+    while(true){
+      if(ch === t.d){ duplicate = true; break; }
+      const dir = ch < t.d ? -1 : 1;
+      path.push({n:t, dir});
+      const next = dir < 0 ? t.l : t.r;
+      if(!next) break;
+      t = next;
+    }
+    if(duplicate) return;
+    const dir = ch < t.d ? -1 : 1;
+    const node = mk(ch);
+    if(dir < 0) t.l = node; else t.r = node;
+    for(let i = path.length - 1; i >= 0; i--){
+      const p = path[i].n;
+      if(path[i].dir < 0){
+        if(p.b > 0){ p.b = 0; break; }
+        if(p.b === 0){ p.b = -1; continue; }
+      } else {
+        if(p.b < 0){ p.b = 0; break; }
+        if(p.b === 0){ p.b = 1; continue; }
+      }
+      const q = path[i].dir < 0 ? p.l : p.r;
+      const kind = path[i].dir < 0 ? (q.b < 0 ? 'LL' : 'LR') : (q.b > 0 ? 'RR' : 'RL');
+      let nr;
+      if(kind === 'LL'){ p.b = 0; q.b = 0; p.l = q.r; q.r = p; nr = q; }
+      else if(kind === 'RR'){ p.b = 0; q.b = 0; p.r = q.l; q.l = p; nr = q; }
+      else if(kind === 'LR'){ const r = q.r; p.b = r.b < 0 ? 1 : 0; q.b = r.b > 0 ? -1 : 0; r.b = 0; q.r = r.l; p.l = r.r; r.l = q; r.r = p; nr = r; }
+      else { const r = q.l; p.b = r.b > 0 ? -1 : 0; q.b = r.b < 0 ? 1 : 0; r.b = 0; p.r = r.l; q.l = r.r; r.l = p; r.r = q; nr = r; }
+      if(i === 0) root = nr;
+      else{
+        const g = path[i - 1];
+        if(g.dir < 0) g.n.l = nr; else g.n.r = nr;
+      }
+      break;
+    }
+  }
+
+  function buildTree(keys){
+    seq = 0; root = null;
+    keys.forEach(insertAVL);
+  }
+
+  function removeKey(key){
+    let t = root, path = [], cmp = [];
+    while(t && t.d !== key){
+      const dir = key < t.d ? -1 : 1;
+      cmp.push(`${S.esc(key)} ${dir < 0 ? '&lt;' : '&gt;'} ${S.esc(t.d)} → ${dir < 0 ? 'влево' : 'вправо'}`);
+      path.push({n:t, dir});
+      t = dir < 0 ? t.l : t.r;
+    }
+    const pathIds = path.map(p => p.n.id);
+    if(!t){
+      snap(`Удаление «${key}»: ключ не найден`,
+        `Поиск: ${cmp.join('; ') || 'дерево пусто'}.<span class="l">Ключа «${S.esc(key)}» нет — дерево не меняется.</span>`,
+        {});
+      return;
+    }
+
+    snap(`Удаление «${key}»: узел найден`,
+      `Поиск: ${cmp.join('; ')}.<span class="l">Сначала удаляем узел как в обычном дереве поиска, затем восстанавливаем балансы.</span>`,
+      {bad:[t.id], path:pathIds});
+
+    let ancestors;
+    if(t.l && t.r){
+      let y = t.l, yPath = [];
+      while(y.r){ yPath.push(y); y = y.r; }
+      const yId = y.id, yKey = y.d;
+      snap(`Случай 3: у «${key}» два потомка`,
+        `Берём предшественника — максимум левого поддерева, ключ «<b>${S.esc(yKey)}</b>».<span class="l">${yPath.length ? 'Идём влево, затем вправо до упора.' : 'Максимум — это левый потомок удаляемого узла.'} После переноса его ключа удалим сам предшественник.</span>`,
+        {bad:[t.id], tags:{[yId]:'замена'}, path:pathIds.concat(yPath.map(n => n.id))});
+
+      const oldKey = t.d;
+      t.d = yKey;
+      snap(`Копируем «${yKey}» на место «${oldKey}»`,
+        `Ключ «<b>${S.esc(yKey)}</b>» перенесён в удаляемый узел.<span class="l">Старый узел-предшественник пока остался в дереве — сейчас удалим его как лист или узел с одним потомком.</span>`,
+        {newId:t.id, tags:{[yId]:'удалить'}, path:pathIds.concat(yPath.map(n => n.id))});
+
+      if(yPath.length) yPath[yPath.length - 1].r = y.l;
+      else t.l = y.l;
+      ancestors = path.concat([{n:t, dir:-1}], yPath.map(n => ({n, dir:1})));
+      snap(`Удалён прежний узел «${yKey}»`,
+        `У предшественника не было правого потомка; его левое поддерево подставлено на освободившееся место.<span class="l">Теперь поднимаемся от места удаления к корню и проверяем балансы.</span>`,
+        {path:ancestors.map(a => a.n.id)});
+    } else {
+      const child = t.l || t.r;
+      if(!path.length) root = child;
+      else{
+        const p = path[path.length - 1];
+        if(p.dir < 0) p.n.l = child; else p.n.r = child;
+      }
+      ancestors = path.slice();
+      snap(`Удаление «${key}»: ${child ? 'один потомок' : 'лист'}`,
+        child
+          ? `Подставляем единственного потомка «<b>${S.esc(child.d)}</b>» на место удалённого узла.<span class="l">Теперь проверяем балансы вверх по пути.</span>`
+          : `Узел был листом — просто отрезаем его от родителя.<span class="l">Теперь проверяем балансы вверх по пути.</span>`,
+        {path:ancestors.map(a => a.n.id)});
+    }
+
+    const log = [];
+    for(let i = ancestors.length - 1; i >= 0; i--){
+      const a = ancestors[i].n;
+      const b = S.balance(a);
+      if(Math.abs(b) <= 1){
+        log.push(`«${S.esc(a.d)}»: bal ${S.fmtBal(b)} — в норме.`);
+        continue;
+      }
+      const rightHeavy = b > 1;
+      const q = rightHeavy ? a.r : a.l;
+      const bq = S.balance(q);
+      const kind = rightHeavy ? (bq >= 0 ? 'RR' : 'RL') : (bq <= 0 ? 'LL' : 'LR');
+      let r = null;
+      if(kind === 'LR') r = q.r;
+      if(kind === 'RL') r = q.l;
+      const tags = {[a.id]:'P', [q.id]:'Q'};
+      if(r) tags[r.id] = 'R';
+      const P = S.esc(a.d), Q = S.esc(q.d), R = r ? S.esc(r.d) : '';
+      log.push(`<b>«${P}»: bal ${S.fmtBal(b)} — нужен поворот ${kind}.</b>`);
+
+      const why = rightHeavy
+        ? (kind === 'RR'
+          ? `Правое поддерево перевешивает (bal(P)=+2), у правого ребёнка Q=«${Q}» баланс ${S.fmtBal(bq)} ≥ 0 — случай <b>RR</b>, достаточно одного левого поворота.`
+          : `Правое поддерево перевешивает (bal(P)=+2), но у правого ребёнка Q=«${Q}» баланс ${S.fmtBal(bq)} &lt; 0 — случай <b>RL</b>, нужен двойной поворот через R=«${R}».`)
+        : (kind === 'LL'
+          ? `Левое поддерево перевешивает (bal(P)=−2), у левого ребёнка Q=«${Q}» баланс ${S.fmtBal(bq)} ≤ 0 — случай <b>LL</b>, достаточно одного правого поворота.`
+          : `Левое поддерево перевешивает (bal(P)=−2), но у левого ребёнка Q=«${Q}» баланс ${S.fmtBal(bq)} &gt; 0 — случай <b>LR</b>, нужен двойной поворот через R=«${R}».`);
+
+      snap(`Нарушение баланса в «${P}»`,
+        `<span class="l">${log.join('<br>')}</span><br>${why}`,
+        {bad:[a.id], tags, rot:kind, path:ancestors.slice(0, i).map(x => x.n.id)});
+
+      const nr = rotate(a, kind);
+      if(i === 0) root = nr;
+      else{
+        const p = ancestors[i - 1];
+        if(p.dir < 0) p.n.l = nr; else p.n.r = nr;
+      }
+      totalRot++;
+
+      const how = {
+        LL:`Правый поворот вокруг P=«${P}»: Q=«${Q}» поднимается, P становится его правым ребёнком, правое поддерево Q переходит к P слева.`,
+        RR:`Левый поворот вокруг P=«${P}»: Q=«${Q}» поднимается, P становится его левым ребёнком, левое поддерево Q переходит к P справа.`,
+        LR:`Двойной поворот LR: левый вокруг Q=«${Q}», затем правый вокруг P=«${P}». Корнем становится R=«${R}»; его левое поддерево уходит к Q, правое — к P.`,
+        RL:`Двойной поворот RL: правый вокруг Q=«${Q}», затем левый вокруг P=«${P}». Корнем становится R=«${R}»; его левое поддерево уходит к P, правое — к Q.`
+      }[kind];
+      snap(`Поворот ${kind}`,
+        `${how}<span class="l">Продолжаем подъём к корню: после удаления высота поддерева могла уменьшиться, поэтому проверяем и вышележащие узлы.</span>`,
+        {newId:nr.id, tags:Object.assign({}, tags), rot:kind, path:ancestors.slice(0, i).map(x => x.n.id)});
+      log.push(`Поворот ${kind} выполнен.`);
+    }
+
+    snap(`Удаление «${key}» завершено`,
+      `<span class="l">${log.join('<br>') || 'Узел был корнем без потомков.'}</span><br>Балансы снова в пределах ±1 — АВЛ-условие восстановлено.`,
+      {});
+  }
+
+  function build(){
+    steps = []; totalRot = 0;
+    const keys = S.parseKeys($('inp').value, 20).keys;
+    const dels = [...String($('del').value)].filter(c => !/[\s,;]/.test(c));
+    if(!keys.length){
+      player.setSteps([{title:'Пусто', text:'Введите ключи дерева.', tree:null}]);
+      return;
+    }
+    buildTree(keys);
+    snap('Исходное АВЛ-дерево',
+      `Дерево построено вставкой в порядке <b>${keys.map(S.esc).join(' → ')}</b>. Высота H = ${S.height(root)}, балансы в норме.<span class="l">Удаляем ключи: ${dels.length ? dels.map(k => '«' + S.esc(k) + '»').join(', ') : 'список пуст'}.</span>`,
+      {});
+    for(const k of dels) removeKey(k);
+    snap('Готово',
+      `Высота <b>H = ${S.height(root)}</b>, средняя глубина <b>${S.avgDepth(root).toFixed(2)}</b>, поворотов при удалении: <b>${totalRot}</b>.<span class="l">Все узлы снова удовлетворяют АВЛ-условию |bal| ≤ 1.</span>`,
+      {});
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('del').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

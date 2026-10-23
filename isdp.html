@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ИСДП — идеально сбалансированное дерево поиска</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">ИСДП</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>ИСДП: идеально сбалансированное дерево поиска</h1>
+  <p class="lead">Дерево строится из отсортированного набора: середина отрезка становится корнем, левая половина уходит в левое поддерево, правая — в правое. В результате высота минимальна, а разница высот поддеревьев не превышает единицы.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Набор букв</label>
+        <input id="inp" value="ABCDEFG" autocomplete="off" spellcheck="false" placeholder="Например: KDBACFGE">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Повторяющиеся буквы отбрасываются, набор сортируется по коду символа. До 19 ключей.</div>
+  </section>
+
+  <div id="stage"></div>
+
+  <details>
+    <summary>Почему дерево получается идеально сбалансированным?</summary>
+    <p>На каждом шаге отрезок делится пополам, поэтому слева и справа от корня оказывается почти одинаковое число ключей. Высота такого дерева равна <code>⌊log₂ n⌋ + 1</code>, а средняя глубина — <code>≈ log₂ n</code>.</p>
+    <p>ИСДП удобно строить, когда весь набор ключей известен заранее. Для динамических вставок используют АВЛ-дерево или B-дерево.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="index.html">← Все деревья</a>
+    <a href="sdp.html">СДП — случайное дерево поиска →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, keys = [], seq = 0;
+  const mk = d => ({id:++seq, d, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ok)"></i>только что созданный узел</span><span><i class="dot" style="background:var(--ac)"></i>середина текущего отрезка</span>',
+    render(canvas, step){
+      canvas.classList.toggle('compact', !step.tree);
+      canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
+      S.renderBinary(canvas.querySelector('.tree-host'), step, {showBal:false});
+    }
+  });
+
+  function build(){
+    const parsed = S.parseKeys($('inp').value, 19);
+    keys = parsed.keys.slice().sort((a, b) => a.codePointAt(0) - b.codePointAt(0));
+    seq = 0; root = null;
+    const steps = [];
+    if(!keys.length){
+      player.setSteps([{title:'Пусто', text:'Введите хотя бы одну букву и нажмите «Построить».', tree:null}]);
+      return;
+    }
+    const dup = parsed.dups ? ` Повторов отброшено: ${parsed.dups}.` : '';
+    steps.push({
+      title:'Шаг 0. Сортируем ключи',
+      text:`Для ИСДП нужен отсортированный набор. Получили: <b>${keys.map(S.esc).join(' ')}</b>.${dup}<span class="l">Дальше рекурсивно выбираем середину отрезка: она становится корнем поддерева.</span>`,
+      strip:S.strip(keys),
+      tree:null
+    });
+
+    function buildTree(lo, hi, parent, dir, depth){
+      if(lo > hi) return;
+      const mid = (lo + hi) >> 1;
+      const n = mk(keys[mid]);
+      if(parent){ if(dir < 0) parent.l = n; else parent.r = n; } else root = n;
+      const where = parent ? (dir < 0 ? 'левым потомком' : 'правым потомком') : 'корнем дерева';
+      steps.push({
+        title:`Отрезок [${lo}..${hi}], середина — «${keys[mid]}»`,
+        text:`Индекс середины m = (${lo}+${hi}) div 2 = <b>${mid}</b>, ключ «<b>${S.esc(keys[mid])}</b>».<span class="l">Узел становится ${where}; глубина ${depth}. Слева остаётся [${lo}..${mid-1}], справа — [${mid+1}..${hi}].</span>`,
+        strip:S.strip(keys, {lo, hi, mid}),
+        tree:S.clone(root),
+        newId:n.id
+      });
+      buildTree(lo, mid - 1, n, -1, depth + 1);
+      buildTree(mid + 1, hi, n, 1, depth + 1);
+    }
+    buildTree(0, keys.length - 1, null, 0, 0);
+
+    const h = S.height(root);
+    const avg = S.avgDepth(root);
+    const ideal = Math.ceil(Math.log2(keys.length + 1));
+    steps.push({
+      title:'Готово: дерево построено',
+      text:`Высота <b>H = ${h}</b>, средняя глубина <b>${avg.toFixed(2)}</b>, минимально возможная высота для ${keys.length} ключей — <b>${ideal}</b>.<span class="l">Все балансы по модулю не больше 1 — дерево идеально сбалансировано. Стоимость успешного поиска пропорциональна глубине узла.</span>`,
+      strip:S.strip(keys, {done:keys.map((_, i) => i)}),
+      tree:S.clone(root)
+    });
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('ex').onclick = () => { $('inp').value = 'KDBACFGE'; build(); };
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

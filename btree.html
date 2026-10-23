@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Двоичное Б-дерево поиска по шагам</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">Двоичное Б-дерево поиска</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Двоичное Б-дерево поиска по шагам</h1>
+  <p class="lead">B-дерево хранит несколько ключей в одном узле. При порядке <b>m</b> узел (кроме корня) содержит от ⌈m/2⌉−1 до m−1 ключей и до m потомков. При порядке 4 получается классическое 2-3-4 дерево: 1–3 ключа и 2–4 потомка. Переполненный узел при вставке расщепляется, а медиана поднимается в родителя.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Буквы в порядке вставки</label>
+        <input id="inp" value="ABCDEFG" autocomplete="off" spellcheck="false" placeholder="Например: ABCDEFG">
+      </div>
+      <div class="field" style="flex:0 1 160px">
+        <label for="order">Порядок m</label>
+        <select id="order">
+          <option value="3">3 — 2-3 дерево</option>
+          <option value="4" selected>4 — 2-3-4 дерево</option>
+          <option value="5">5 — 3-4-5 дерево</option>
+          <option value="6">6</option>
+        </select>
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="meta" id="props" style="margin-top:9px"></div>
+  </section>
+
+  <div id="stage"></div>
+
+  <details>
+    <summary>Свойства B-дерева порядка m</summary>
+    <ul>
+      <li>Все листья находятся на одном уровне — дерево идеально сбалансировано по высоте.</li>
+      <li>В каждом узле, кроме корня, от ⌈m/2⌉−1 до m−1 ключей; корень — от 1 до m−1.</li>
+      <li>Ключи в узле упорядочены, а потомки разделяют диапазоны между соседними ключами.</li>
+      <li>Вставка идёт к листу: ключ добавляется в лист, и если ключей стало больше m−1, узел расщепляется, а медиана поднимается в родителя. Волна расщеплений может дойти до корня.</li>
+      <li>Высота B-дерева растёт как O(log<sub>m</sub> n), а число обращений к диску — меньше, чем у двоичных деревьев.</li>
+    </ul>
+  </details>
+
+  <nav class="pager">
+    <a href="avl-delete.html">← Удаление из АВЛ</a>
+    <a href="optimal-exact.html">Оптимальное дерево — точный алгоритм →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let root = null, seq = 0, steps = [], order = 4;
+  const mk = (keys, ch) => ({id:++seq, keys:keys || [], ch:ch || []});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ac)"></i>узел на пути / изменённый узел</span><span><i class="dot" style="background:var(--ok)"></i>вставленный или поднятый ключ</span>',
+    render(canvas, step){
+      canvas.innerHTML = '<div class="tree-host"></div>';
+      S.renderBTree(canvas.querySelector('.tree-host'), step);
+    }
+  });
+
+  function snap(title, text, extra){
+    steps.push(Object.assign({title, text, tree:S.cloneB(root)}, extra || {}));
+  }
+  const fmtNode = n => '[' + n.keys.map(S.esc).join(' ') + ']';
+
+  function findIndex(n, key){
+    let i = 0;
+    while(i < n.keys.length && key > n.keys[i]) i++;
+    return i;
+  }
+  function contains(n, key){
+    while(n){
+      const i = findIndex(n, key);
+      if(n.keys[i] === key) return true;
+      if(!n.ch.length) return false;
+      n = n.ch[i];
+    }
+    return false;
+  }
+  function insert(key){
+    if(contains(root, key)){
+      snap(`«${key}» уже есть`,
+        `Ключ «<b>${S.esc(key)}</b>» найден при спуске — дубликаты в B-дерево не добавляем.`,
+        {});
+      return;
+    }
+    if(!root){
+      root = mk([key], []);
+      snap(`Вставка «${key}»`,
+        `Дерево пустое: создаём корень ${fmtNode(root)}.`,
+        {hiNode:root.id, hiKey:key});
+      return;
+    }
+
+    let t = root, trace = [], path = [], walkText = [];
+    while(true){
+      path.push(t.id);
+      const i = findIndex(t, key);
+      const keys = fmtNode(t);
+      if(!t.ch.length){
+        walkText.push(`${keys}: ключ «${S.esc(key)}» — в лист, позиция ${i}.`);
+        break;
+      }
+      walkText.push(`${keys}: ключ «${S.esc(key)}» ${i < t.keys.length ? '&lt; «' + S.esc(t.keys[i]) + '» → потомок ' + i : '&gt; всех ключей → потомок ' + i}.`);
+      trace.push({n:t, i});
+      t = t.ch[i];
+    }
+    snap(`Вставка «${key}»: спуск от корня`,
+      walkText.join('<br>'),
+      {nodes:path});
+
+    const pos = findIndex(t, key);
+    t.keys.splice(pos, 0, key);
+    const overfull = t.keys.length >= order;
+    snap(`Ключ «${key}» добавлен в лист`,
+      `В узел ${fmtNode(t)} ключ вставлен на позицию ${pos}.<span class="l">${overfull ? `Узел временно содержит ${t.keys.length} ключей при максимуме ${order - 1} — нужно расщепление.` : 'Число ключей не превышает максимум — вставка завершена.'}</span>`,
+      {hiNode:t.id, hiKey:key});
+
+    let node = t;
+    while(node.keys.length >= order){
+      const mid = Math.floor(node.keys.length / 2);
+      const promoted = node.keys[mid];
+      const left = mk(node.keys.slice(0, mid), node.ch.slice(0, mid + 1));
+      const right = mk(node.keys.slice(mid + 1), node.ch.slice(mid + 1));
+      const parentInfo = trace.pop();
+      if(!parentInfo){
+        root = mk([promoted], [left, right]);
+        snap(`Расщепление корня: медиана «${promoted}»`,
+          `Корень переполнен. Медиана «<b>${S.esc(promoted)}</b>» становится новым корнем, ключи делятся на двух потомков: ${fmtNode(left)} и ${fmtNode(right)}.<span class="l">Высота дерева увеличилась на 1 — это единственный способ роста B-дерева.</span>`,
+          {nodes:[root.id], hiNode:root.id, hiKey:promoted});
+        break;
+      }
+      const parent = parentInfo.n;
+      parent.keys.splice(parentInfo.i, 0, promoted);
+      parent.ch.splice(parentInfo.i, 1, left, right);
+      snap(`Расщепление: медиана «${promoted}» поднята`,
+        `Переполненный узел разделён на ${fmtNode(left)} и ${fmtNode(right)}; медиана «<b>${S.esc(promoted)}</b>» вставлена в родителя ${fmtNode(parent)}.<span class="l">${parent.keys.length >= order ? 'Родитель тоже переполнен — расщепление продолжается вверх.' : 'Родитель не переполнен — вставка завершена.'}</span>`,
+        {nodes:[parent.id], hiNode:parent.id, hiKey:promoted});
+      node = parent;
+    }
+  }
+
+  function levelInfo(){
+    let maxDepth = 0, leaves = 0, leafDepth = null, same = true;
+    (function walk(n, d){
+      maxDepth = Math.max(maxDepth, d);
+      if(!n.ch.length){
+        leaves++;
+        if(leafDepth === null) leafDepth = d;
+        else if(leafDepth !== d) same = false;
+      }
+      n.ch.forEach(c => walk(c, d + 1));
+    })(root, 0);
+    return {height:maxDepth + 1, leaves, same};
+  }
+
+  function build(){
+    order = +$('order').value;
+    const parsed = S.parseKeys($('inp').value, 20);
+    const keys = parsed.keys;
+    seq = 0; root = null; steps = [];
+    const minKeys = Math.ceil(order / 2) - 1;
+    $('props').innerHTML = `Порядок <b>m=${order}</b>: в узле от <b>${minKeys}</b> до <b>${order - 1}</b> ключей и до <b>${order}</b> потомков.${order === 4 ? ' Это 2-3-4 дерево.' : ''}`;
+    if(!keys.length){
+      player.setSteps([{title:'Пусто', text:'Введите хотя бы одну букву.', tree:null}]);
+      return;
+    }
+    snap('Пустое B-дерево',
+      `Вставляем ключи в порядке <b>${keys.map(S.esc).join(' → ')}</b> при порядке m=${order}.${parsed.dups ? ` Повторов отброшено: ${parsed.dups}.` : ''}<span class="l">Вставка спускается от корня к листу; при переполнении узла медиана поднимается в родителя, и расщепление может продолжиться вверх.</span>`,
+      {});
+    for(const k of keys) insert(k);
+    const info = levelInfo();
+    snap('Готово: B-дерево построено',
+      `Ключей: <b>${keys.length}</b>, высота <b>${info.height}</b>, листьев <b>${info.leaves}</b>.<span class="l">${info.same ? 'Все листья на одном уровне — B-дерево сбалансировано по построению.' : 'Листья оказались на разных уровнях — проверьте порядок и входные данные.'}</span>`,
+      {});
+    player.setSteps(steps);
+  }
+
+  $('go').onclick = build;
+  $('order').onchange = build;
+  $('ex').onclick = () => { $('inp').value = 'ABCDEFGHIJ'; build(); };
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

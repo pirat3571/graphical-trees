@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Оптимальное дерево поиска — приближённые алгоритмы</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все деревья</a>
+  <span class="crumb">Оптимальное дерево — приближённо</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Оптимальное дерево поиска: приближённые алгоритмы</h1>
+  <p class="lead">Точный алгоритм перебирает все варианты корня и требует O(n³). Приближённые строят хорошее, но не обязательно оптимальное дерево за меньшее время. Здесь два классических подхода: вставка ключей по убыванию частот и выбор взвешенной середины отрезка.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="keys">Ключи (буквы)</label>
+        <input id="keys" value="A B C D E" autocomplete="off" spellcheck="false" placeholder="Например: A B C D E">
+      </div>
+      <div class="field">
+        <label for="weights">Веса через пробел</label>
+        <input id="weights" value="10 5 2 1 7" autocomplete="off" spellcheck="false" placeholder="Например: 10 5 2 1 7">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="msg" id="msg" style="margin-top:9px"></div>
+  </section>
+
+  <div class="card">
+    <h2>Сравнение с точным оптимумом</h2>
+    <div class="meta">Стоимость — сумма весов, умноженных на число сравнений при успешном поиске: Σ w<sub>i</sub>·(глубина<sub>i</sub>+1).</div>
+    <div id="cmp"></div>
+  </div>
+
+  <div class="row tabs" id="tabs">
+    <button class="tab on" type="button" data-mode="freq">1. По убыванию частот</button>
+    <button class="tab" type="button" data-mode="median">2. Взвешенная середина</button>
+  </div>
+
+  <div id="stage"></div>
+
+  <details>
+    <summary>Как работают приближённые алгоритмы</summary>
+    <p><b>По убыванию частот.</b> Ключи сортируются по весу и вставляются в обычное дерево поиска в этом порядке. Самые частые ключи попадают ближе к корню, поэтому дают меньший вклад в стоимость. Это жадная эвристика: она не учитывает форму дерева и может быть далека от оптимума.</p>
+    <p><b>Взвешенная середина.</b> Рекурсивно выбираем корнем такой ключ, чтобы сумма весов слева и справа была как можно ближе. Это обобщение ИСДП: делим не по числу ключей, а по суммарному весу. Обычно даёт результат ближе к оптимуму, но гарантии оптимальности нет.</p>
+    <p>Точный оптимум в таблице вычисляется тем же динамическим программированием, что и на отдельной странице, но без пошаговой визуализации.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="optimal-exact.html">← Точный алгоритм</a>
+    <a href="index.html">Все деревья →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let keys = [], weights = [], weightMap = {}, seq = 0, root = null;
+  let results = null, mode = 'freq';
+  const mk = d => ({id:++seq, d, l:null, r:null});
+
+  const player = S.mountPlayer($('stage'), {
+    legend: '<span><i class="dot" style="background:var(--ok)"></i>новый узел</span><span><i class="dot" style="background:var(--ac)"></i>путь сравнений</span><span>под узлом — вес ключа</span>',
+    render(canvas, step){
+      canvas.classList.toggle('compact', !step.tree);
+      canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
+      const host = canvas.querySelector('.tree-host');
+      if(step.tree) S.renderBinary(host, step, {showBal:false, weightMap});
+      else host.innerHTML = '';
+    }
+  });
+
+  function readInput(){
+    const raw = [...String($('keys').value)].filter(c => !/[\s,;]/.test(c));
+    const w = String($('weights').value).trim().split(/[\s,;]+/).filter(Boolean).map(Number);
+    if(!raw.length) return {error:'Введите хотя бы один ключ.'};
+    if(raw.length > 12) return {error:'Допускается не больше 12 ключей.'};
+    if(new Set(raw).size !== raw.length) return {error:'Ключи не должны повторяться.'};
+    if(w.length !== raw.length) return {error:`Ключей ${raw.length}, а весов ${w.length}.`};
+    if(w.some(x => !Number.isFinite(x) || x < 0)) return {error:'Веса должны быть неотрицательными числами.'};
+    const pairs = raw.map((k, i) => ({k, w:w[i]})).sort((a, b) => a.k.codePointAt(0) - b.k.codePointAt(0));
+    return {keys:pairs.map(p => p.k), weights:pairs.map(p => p.w)};
+  }
+
+  function exactResult(keys, w){
+    const n = keys.length;
+    if(!n) return {cost:0, height:0};
+    const C = Array.from({length:n}, () => Array(n).fill(0));
+    const R = Array.from({length:n}, () => Array(n).fill(0));
+    const pref = [0];
+    for(let i = 0; i < n; i++) pref.push(pref[i] + w[i]);
+    for(let len = 1; len <= n; len++){
+      for(let i = 0; i + len - 1 < n; i++){
+        const j = i + len - 1;
+        const sum = pref[j + 1] - pref[i];
+        let best = Infinity, br = i;
+        for(let r = i; r <= j; r++){
+          const val = sum + (r > i ? C[i][r - 1] : 0) + (r < j ? C[r + 1][j] : 0);
+          if(val < best){ best = val; br = r; }
+        }
+        C[i][j] = best; R[i][j] = br;
+      }
+    }
+    function restore(i, j){
+      if(i > j) return null;
+      const r = R[i][j];
+      return {d:keys[r], l:restore(i, r - 1), r:restore(r + 1, j)};
+    }
+    return {cost:C[0][n - 1], height:S.height(restore(0, n - 1))};
+  }
+
+  function makeFreq(){
+    const pairs = keys.map((k, i) => ({k, w:weights[i]}))
+      .sort((a, b) => b.w - a.w || a.k.codePointAt(0) - b.k.codePointAt(0));
+    const items = pairs.map(p => ({k:p.k, w:p.w}));
+    seq = 0; root = null;
+    const steps = [];
+    steps.push({
+      title:'Метод 1: сортируем по убыванию частот',
+      text:`Порядок вставки: <b>${pairs.map(p => S.esc(p.k) + '(' + p.w + ')').join(' → ')}</b>.<span class="l">Чем больше вес, тем раньше ключ вставляется и тем ближе он к корню. Это жадная эвристика.</span>`,
+      strip:S.strip(items),
+      tree:null
+    });
+    for(let idx = 0; idx < pairs.length; idx++){
+      const p = pairs[idx];
+      if(!root){
+        root = mk(p.k);
+        steps.push({
+          title:`Вставляем «${p.k}» (вес ${p.w})`,
+          text:`Первый по частоте ключ становится корнем.<span class="l">Его стоимость поиска будет 1·${p.w} = ${p.w}.</span>`,
+          strip:S.strip(items, {mid:idx}),
+          tree:S.clone(root),
+          newId:root.id
+        });
+        continue;
+      }
+      let t = root, path = [], cmp = [], duplicate = false;
+      while(true){
+        if(p.k === t.d){ duplicate = true; break; }
+        const dir = p.k < t.d ? -1 : 1;
+        cmp.push(`${S.esc(p.k)} ${dir < 0 ? '&lt;' : '&gt;'} ${S.esc(t.d)} → ${dir < 0 ? 'влево' : 'вправо'}`);
+        path.push(t.id);
+        const next = dir < 0 ? t.l : t.r;
+        if(!next) break;
+        t = next;
+      }
+      if(duplicate) continue;
+      const dir = p.k < t.d ? -1 : 1;
+      const n = mk(p.k);
+      if(dir < 0) t.l = n; else t.r = n;
+      steps.push({
+        title:`Вставляем «${p.k}» (вес ${p.w})`,
+        text:`Сравнения: ${cmp.join('; ')}.<span class="l">Ключ с весом ${p.w} оказался на глубине ${path.length}; его вклад в стоимость — ${p.w}·${path.length + 1} = ${p.w * (path.length + 1)}.</span>`,
+        strip:S.strip(items, {mid:idx}),
+        tree:S.clone(root),
+        newId:n.id,
+        path
+      });
+    }
+    const cost = S.weightedCost(root, weightMap);
+    steps.push({
+      title:'Результат метода 1',
+      text:`Стоимость <b>${cost}</b>, высота <b>${S.height(root)}</b>.<span class="l">Жадный порядок не гарантирует оптимум: он не перебирает альтернативные корни.</span>`,
+      strip:S.strip(items, {done:items.map((_, i) => i)}),
+      tree:S.clone(root)
+    });
+    return {steps, cost, height:S.height(root)};
+  }
+
+  function makeMedian(){
+    const items = keys.map((k, i) => ({k, w:weights[i]}));
+    const pref = [0];
+    for(let i = 0; i < keys.length; i++) pref.push(pref[i] + weights[i]);
+    seq = 0; root = null;
+    const steps = [];
+    steps.push({
+      title:'Метод 2: взвешенная середина',
+      text:`Ключи: <b>${keys.map((k, i) => S.esc(k) + '(' + weights[i] + ')').join(' ')}</b>.<span class="l">На каждом отрезке выбираем корень так, чтобы суммарный вес слева и справа был как можно ближе. Это деление не по числу ключей, а по весу.</span>`,
+      strip:S.strip(items),
+      tree:null
+    });
+
+    function rec(lo, hi, parent, dir, depth){
+      if(lo > hi) return;
+      let best = null;
+      for(let r = lo; r <= hi; r++){
+        const left = pref[r] - pref[lo];
+        const right = pref[hi + 1] - pref[r + 1];
+        const diff = Math.abs(left - right);
+        if(!best || diff < best.diff) best = {r, left, right, diff};
+      }
+      const node = mk(keys[best.r]);
+      if(parent){ if(dir < 0) parent.l = node; else parent.r = node; } else root = node;
+      const where = parent ? (dir < 0 ? 'левым потомком' : 'правым потомком') : 'корнем дерева';
+      steps.push({
+        title:`Отрезок [${lo}..${hi}], корень — «${keys[best.r]}»`,
+        text:`Суммарный вес слева <b>${best.left}</b>, справа <b>${best.right}</b>, разница <b>${best.diff}</b> — минимальна среди ключей отрезка. Выбираем «<b>${S.esc(keys[best.r])}</b>» (вес ${weights[best.r]}).<span class="l">Узел становится ${where} на глубине ${depth}. Слева строим [${lo}..${best.r - 1}], справа — [${best.r + 1}..${hi}].</span>`,
+        strip:S.strip(items, {lo, hi, mid:best.r}),
+        tree:S.clone(root),
+        newId:node.id
+      });
+      rec(lo, best.r - 1, node, -1, depth + 1);
+      rec(best.r + 1, hi, node, 1, depth + 1);
+    }
+    rec(0, keys.length - 1, null, 0, 0);
+
+    const cost = S.weightedCost(root, weightMap);
+    steps.push({
+      title:'Результат метода 2',
+      text:`Стоимость <b>${cost}</b>, высота <b>${S.height(root)}</b>.<span class="l">Взвешенное деление обычно даёт результат ближе к оптимуму, чем сортировка по частотам, но всё равно не гарантирует минимальную стоимость.</span>`,
+      strip:S.strip(items, {done:items.map((_, i) => i)}),
+      tree:S.clone(root)
+    });
+    return {steps, cost, height:S.height(root)};
+  }
+
+  function renderCompare(exact, freq, med){
+    function row(name, r, best){
+      let dev = '—';
+      if(exact.cost > 0){
+        const d = (r.cost - exact.cost) / exact.cost * 100;
+        dev = Math.abs(d) < 1e-9 ? '<b>оптимум</b>' : `+${d.toFixed(1)}%`;
+      }
+      return `<tr class="${best ? 'best' : ''}"><td>${name}</td><td><b>${r.cost}</b></td><td>${r.height}</td><td>${dev}</td></tr>`;
+    }
+    $('cmp').innerHTML = `<div class="table-wrap"><table class="cmp"><thead><tr><th>Алгоритм</th><th>Стоимость</th><th>Высота</th><th>Отклонение от оптимума</th></tr></thead><tbody>
+      ${row('Точный оптимум (DP)', exact, true)}
+      ${row('По убыванию частот', freq, freq.cost === exact.cost)}
+      ${row('Взвешенная середина', med, med.cost === exact.cost)}
+    </tbody></table></div>`;
+  }
+
+  function showMode(next){
+    mode = next;
+    document.querySelectorAll('#tabs .tab').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+    if(results) player.setSteps(results[mode].steps);
+  }
+
+  function build(){
+    const input = readInput();
+    const msg = $('msg');
+    if(input.error){
+      msg.className = 'msg bad';
+      msg.textContent = input.error;
+      keys = []; weights = []; weightMap = {};
+      results = null;
+      $('cmp').innerHTML = '';
+      player.setSteps([{title:'Проверьте ввод', text:S.esc(input.error), tree:null}]);
+      return;
+    }
+    msg.className = 'msg';
+    msg.innerHTML = `Ключи отсортированы: <b>${input.keys.map(S.esc).join(' ')}</b>. Суммарный вес: <b>${input.weights.reduce((a, b) => a + b, 0)}</b>.`;
+    keys = input.keys; weights = input.weights;
+    weightMap = {};
+    keys.forEach((k, i) => { weightMap[k] = weights[i]; });
+
+    const exact = exactResult(keys, weights);
+    const freq = makeFreq();
+    const med = makeMedian();
+    results = {freq, median:med};
+    renderCompare(exact, freq, med);
+    showMode(mode);
+  }
+
+  $('go').onclick = build;
+  $('ex').onclick = () => { $('keys').value = 'A B C D E F'; $('weights').value = '5 2 10 1 7 3'; build(); };
+  document.querySelectorAll('#tabs .tab').forEach(b => {
+    b.addEventListener('click', () => showMode(b.dataset.mode));
+  });
+  $('keys').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('weights').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>
