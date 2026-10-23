@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Хеширование — связывание и открытая адресация</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все разделы</a>
+  <span class="crumb">Хеширование</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Хеширование по шагам</h1>
+  <p class="lead">Строим хеш-таблицу из символов. Хеш-функция — код символа по модулю размера таблицы. Коллизии разрешаются двумя способами: цепочками (прямое связывание) или поиском свободной ячейки (открытая адресация).</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Ключи-символы</label>
+        <input id="inp" value="ПРОГРАММА" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Например: ПРОГРАММА">
+      </div>
+      <div class="field" style="flex:0 1 170px">
+        <label for="size">Размер таблицы m</label>
+        <input id="size" type="number" min="3" max="15" step="1" value="11">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+    </div>
+    <div class="meta" style="margin-top:9px">До 20 ключей. Повторяющиеся символы добавляются как отдельные записи — так видны коллизии.</div>
+  </section>
+
+  <div class="row tabs wrap" id="methodTabs" role="tablist" aria-label="Метод разрешения коллизий">
+    <button type="button" class="tab on" data-method="chain">Прямое связывание</button>
+    <button type="button" class="tab" data-method="open">Открытая адресация</button>
+  </div>
+
+  <div id="stage"></div>
+  <div class="hash-stats" id="hashStats"></div>
+
+  <details>
+    <summary>Метод прямого связывания (цепочки)</summary>
+    <p>Каждая ячейка таблицы — это список (цепочка). Ключ с хешем <code>h</code> добавляется в цепочку <code>table[h]</code>. Если там уже есть элементы, возникает коллизия, но новому ключу не нужно искать другую ячейку.</p>
+    <p>Поиск просматривает только одну цепочку. При коэффициенте заполнения <code>α = n / m</code> средняя стоимость поиска — <code>O(1 + α)</code>. Цепочки могут расти и при <code>α &gt; 1</code>; память расходуется на узлы списков.</p>
+  </details>
+
+  <details>
+    <summary>Метод открытой адресации</summary>
+    <p>Все ключи хранятся в самой таблице. Если ячейка <code>h</code> занята, проверяем следующую по кругу: <code>(h + 1) mod m</code>, затем <code>(h + 2) mod m</code> и так далее. Это линейное опробование.</p>
+    <p>Коэффициент заполнения не может превышать 1. Чем ближе <code>α</code> к 1, тем длиннее становится поиск; при <code>α = 1</code> свободных ячеек нет. Линейное опробование образует кластеры — подряд идущие занятые ячейки, из-за которых средняя длина пробы растёт. Удаление требует особой пометки «удалено», иначе цепочка поиска разорвётся.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="indexing.html">← Индексация</a>
+    <a href="trees.html">Деревья →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script src="assets/algo.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let method = 'chain';
+  let steps = [];
+
+  const player = S.mountPlayer($('stage'), {
+    autoplay: 1100,
+    render(canvas, step){
+      canvas.classList.add('compact');
+      canvas.innerHTML = step.html || '';
+    },
+    onStep(s){
+      $('hashStats').innerHTML = s.stat ? statsHTML(s.stat) : '';
+    }
+  });
+
+  function statsHTML(st){
+    if(method === 'chain'){
+      return `<div class="stat"><b>${st.keys}</b><span>ключей</span></div><div class="stat"><b>${st.collisions}</b><span>коллизий</span></div><div class="stat"><b>${st.alpha.toFixed(2)}</b><span>α = n / m</span></div><div class="stat"><b>${st.maxChain}</b><span>макс. цепочка</span></div><div class="stat"><b>${st.probes}</b><span>просмотров</span></div>`;
+    }
+    return `<div class="stat"><b>${st.keys}</b><span>ключей в таблице</span></div><div class="stat"><b>${st.collisions}</b><span>коллизий</span></div><div class="stat"><b>${st.alpha.toFixed(2)}</b><span>α = n / m</span></div><div class="stat"><b>${st.probes}</b><span>всего проб</span></div><div class="stat"><b>${st.failed}</b><span>не поместилось</span></div>`;
+  }
+
+  function hashOf(ch, m){ return S.code(ch) % m; }
+
+  function renderChain(table, o){
+    o = o || {};
+    const hot = o.hot, newKey = o.newKey, cmp = new Set(o.cmp || []);
+    let h = '<div class="htable">';
+    table.forEach((bucket, i) => {
+      const keys = bucket.length
+        ? bucket.map((k, j) => `<span class="hkey${i === hot && j === bucket.length - 1 && newKey ? ' new' : ''}${cmp.has(j) ? ' cmp' : ''}">${S.esc(k)}</span>`).join('<span class="harrow">→</span>')
+        : '<span class="meta">пусто</span>';
+      h += `<div class="hrow"><div class="hnum">${i}</div><div class="hchain${i === hot ? ' hot' : ''}">${keys}</div></div>`;
+    });
+    return h + '</div>';
+  }
+
+  function renderOpen(slots, o){
+    o = o || {};
+    const probe = new Set(o.probe || []), current = o.current, newIndex = o.newIndex;
+    let h = '<div class="hgrid">';
+    slots.forEach((k, i) => {
+      let cls = 'hslot';
+      if(k !== null) cls += ' filled';
+      if(probe.has(i)) cls += ' probe';
+      if(i === current && k !== null && i !== newIndex) cls += ' collision';
+      if(i === newIndex) cls += ' new';
+      h += `<div class="${cls}"><i>${i}</i><b>${k === null ? '·' : S.esc(k)}</b></div>`;
+    });
+    return h + '</div>';
+  }
+
+  function build(){
+    const keys = S.parseChars($('inp').value, 20, true).chars;
+    let m = Math.max(3, Math.min(15, parseInt($('size').value, 10) || 7));
+    $('size').value = m;
+    steps = [];
+
+    if(!keys.length){
+      player.setSteps([{title:'Нет ключей', text:'Введите хотя бы один символ.', html:''}]);
+      $('hashStats').innerHTML = '';
+      return;
+    }
+
+    if(method === 'chain') buildChain(keys, m);
+    else buildOpen(keys, m);
+    player.setSteps(steps);
+  }
+
+  function buildChain(keys, m){
+    const table = Array.from({length:m}, () => []);
+    let collisions = 0, probes = 0, inserted = 0;
+    function add(step){
+      step.stat = {
+        keys: inserted,
+        collisions,
+        probes,
+        alpha: inserted / m,
+        maxChain: Math.max.apply(null, table.map(b => b.length)),
+        failed: 0
+      };
+      steps.push(step);
+    }
+    add({
+      title:'Пустая хеш-таблица',
+      text:`Размер таблицы <b>m = ${m}</b>, метод — <b>прямое связывание</b>. Каждая ячейка — пустая цепочка.<span class="l">Хеш ключа: <code>h = код(символ) mod ${m}</code>. Все ключи с одинаковым h попадут в одну цепочку.</span>`,
+      html: renderChain(table)
+    });
+
+    keys.forEach((ch, idx) => {
+      const h = hashOf(ch, m), bucket = table[h];
+      add({
+        title:`Хеш для «${ch}»`,
+        text:`Код символа «<b>${S.esc(ch)}</b>» = ${S.code(ch)}. Считаем <code>${S.code(ch)} mod ${m} = ${h}</code>. Ключ должен попасть в ячейку <b>${h}</b>.`,
+        html: renderChain(table, {hot:h})
+      });
+      if(bucket.length){
+        collisions++;
+        probes += bucket.length;
+        add({
+          title:`Коллизия в ячейке ${h}`,
+          text:`Ячейка ${h} уже занята цепочкой из <b>${bucket.length}</b> ключей: ${bucket.map(S.esc).join(', ')}. При прямом связывании искать другую ячейку не нужно — добавляем ключ в эту цепочку.`,
+          html: renderChain(table, {hot:h, cmp:bucket.map((_, j) => j)})
+        });
+      } else {
+        add({
+          title:`Ячейка ${h} свободна`,
+          text:`Цепочка в ячейке ${h} пуста — коллизии нет. Добавляем «<b>${S.esc(ch)}</b>» первым элементом.`,
+          html: renderChain(table, {hot:h})
+        });
+      }
+      bucket.push(ch);
+      inserted++;
+      add({
+        title:`«${ch}» добавлен в цепочку ${h}`,
+        text:`В ячейке ${h} теперь <b>${bucket.length}</b> ${bucket.length === 1 ? 'ключ' : 'ключа'}: ${bucket.map(S.esc).join(' → ')}.`,
+        html: renderChain(table, {hot:h, newKey:true})
+      });
+    });
+
+    const maxChain = Math.max.apply(null, table.map(b => b.length));
+    const used = table.filter(b => b.length).length;
+    add({
+      title:'Готово: таблица построена',
+      text:`Вставлено ключей: <b>${inserted}</b>. Коллизий: <b>${collisions}</b>. Просмотров элементов цепочек: <b>${probes}</b>.<span class="l">Коэффициент заполнения α = ${inserted}/${m} ≈ ${(inserted / m).toFixed(2)}. Занято ячеек: ${used} из ${m}, максимальная длина цепочки: ${maxChain}.</span>`,
+      html: renderChain(table.map(b => b.slice()))
+    });
+  }
+
+  function buildOpen(keys, m){
+    const slots = Array(m).fill(null);
+    let collisions = 0, probes = 0, inserted = 0, failed = 0;
+    function add(step){
+      step.stat = {
+        keys: inserted,
+        collisions,
+        probes,
+        alpha: inserted / m,
+        maxChain: 0,
+        failed
+      };
+      steps.push(step);
+    }
+    add({
+      title:'Пустая хеш-таблица',
+      text:`Размер таблицы <b>m = ${m}</b>, метод — <b>открытая адресация</b> с линейным опробованием.<span class="l">Если ячейка h занята, проверяем (h + 1) mod m, затем (h + 2) mod m и так далее. Все ключи лежат в самой таблице.</span>`,
+      html: renderOpen(slots)
+    });
+
+    keys.forEach(ch => {
+      const h = hashOf(ch, m);
+      add({
+        title:`Хеш для «${ch}»`,
+        text:`Код символа «<b>${S.esc(ch)}</b>» = ${S.code(ch)}. Стартовая ячейка: <code>${S.code(ch)} mod ${m} = ${h}</code>.`,
+        html: renderOpen(slots, {current:h, probe:[h]})
+      });
+      let pos = h, examined = 0, insertedHere = false, collided = false;
+      while(examined < m){
+        probes++;
+        examined++;
+        if(slots[pos] === null){
+          slots[pos] = ch;
+          inserted++;
+          add({
+            title:`Свободная ячейка ${pos}`,
+            text:`Ячейка <b>${pos}</b> свободна — записываем «<b>${S.esc(ch)}</b>» сюда. Проб: <b>${examined}</b>.`,
+            html: renderOpen(slots, {current:pos, newIndex:pos, probe:probePath(h, pos, m)})
+          });
+          insertedHere = true;
+          break;
+        }
+        if(!collided){ collisions++; collided = true; }
+        add({
+          title:`Ячейка ${pos} занята`,
+          text:`В ячейке <b>${pos}</b> уже стоит «<b>${S.esc(slots[pos])}</b>». Коллизия — переходим к следующей ячейке <code>(${pos} + 1) mod ${m} = ${(pos + 1) % m}</code>.`,
+          html: renderOpen(slots, {current:pos, probe:probePath(h, pos, m)})
+        });
+        pos = (pos + 1) % m;
+      }
+      if(!insertedHere){
+        failed++;
+        add({
+          title:'Таблица заполнена',
+          text:`За ${m} проб свободной ячейки не нашлось: таблица заполнена. Ключ «<b>${S.esc(ch)}</b>» не добавлен. Для открытой адресации нужен размер больше числа ключей или перехеширование.`,
+          html: renderOpen(slots, {probe:Array.from({length:m}, (_, i) => i)})
+        });
+      }
+    });
+
+    add({
+      title:'Готово: таблица построена',
+      text:`Вставлено ключей: <b>${inserted}</b> из ${keys.length}. Коллизий: <b>${collisions}</b>. Всего проб: <b>${probes}</b>${failed ? `, не поместилось: <b>${failed}</b>` : ''}.<span class="l">Коэффициент заполнения α = ${inserted}/${m} ≈ ${(inserted / m).toFixed(2)}. Линейное опробование образует кластеры: чем выше α, тем длиннее пробы.</span>`,
+      html: renderOpen(slots)
+    });
+  }
+
+  function probePath(start, end, m){
+    const path = [];
+    let p = start;
+    while(true){
+      path.push(p);
+      if(p === end) break;
+      p = (p + 1) % m;
+      if(path.length > m) break;
+    }
+    return path;
+  }
+
+  $('methodTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-method]');
+    if(!b) return;
+    method = b.dataset.method;
+    [...$('methodTabs').querySelectorAll('.tab')].forEach(x => x.classList.toggle('on', x === b));
+    build();
+  });
+  $('go').onclick = build;
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('size').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

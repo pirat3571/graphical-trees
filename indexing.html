@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Индексация символов — индексный массив с флагами</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все разделы</a>
+  <span class="crumb">Индексация</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Индексация символов</h1>
+  <p class="lead">Индексный массив хранит не сами символы, а их позиции в исходной строке, упорядоченные по коду символа. Направление сортировки и фильтры «только гласные» / «только согласные» задаются флагами.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Строка символов</label>
+        <input id="inp" value="ИНФОРМАТИКА" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Например: ИНФОРМАТИКА">
+      </div>
+      <button class="p" id="go" type="button">Построить индекс</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <div class="field" style="flex:0 1 240px">
+        <label>Направление</label>
+        <div class="row tabs wrap" id="dirTabs" style="margin:0">
+          <button type="button" class="tab on" data-dir="asc">По возрастанию</button>
+          <button type="button" class="tab" data-dir="desc">По убыванию</button>
+        </div>
+      </div>
+      <div class="field" style="flex:1 1 280px">
+        <label>Фильтры-флаги</label>
+        <label class="meta" style="display:flex;align-items:center;gap:8px;color:var(--tx)"><input type="checkbox" id="vow" style="width:auto;max-width:none"> Только гласные</label>
+        <label class="meta" style="display:flex;align-items:center;gap:8px;color:var(--tx)"><input type="checkbox" id="cons" style="width:auto;max-width:none"> Только согласные</label>
+      </div>
+    </div>
+    <div class="meta" style="margin-top:9px">Если ни один флаг не включён — берутся все буквы. Флаги взаимоисключающие. Пробелы и знаки препинания не учитываются; позиции считаются по буквам.</div>
+  </section>
+
+  <div id="stage"></div>
+  <div class="search-info" id="indexStats"></div>
+
+  <details>
+    <summary>Что такое индексный массив</summary>
+    <p>Пусть дана строка <code>СОРТ</code>. Если упорядочить её символы по возрастанию, получится <code>ОРСТ</code>. Индексный массив хранит, откуда взят каждый символ: <code>[1, 0, 2, 3]</code> — позиция буквы «О» (1), затем «Р» (0), затем «С» (2), затем «Т» (3).</p>
+    <p>Такое представление удобно для поиска и сравнения строк: сами символы остаются на своих местах, а переставляется только небольшой массив целых чисел. Дополнительные флаги позволяют строить индекс только по подмножеству символов, например только по гласным.</p>
+  </details>
+
+  <details>
+    <summary>Как работают флаги</summary>
+    <p><b>Только гласные.</b> В индекс попадают гласные русские (а, е, ё, и, о, у, ы, э, ю, я) и латинские (a, e, i, o, u, y) буквы. <b>Только согласные.</b> В индекс попадают остальные буквы, кроме мягкого и твёрдого знаков. Если флаги выключены, участвует вся строка.</p>
+    <p>Сортировка всегда устойчивая: одинаковые символы сохраняют исходный порядок позиций. При убывании направление сравнения просто меняется на противоположное.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="binary-search.html">← Бинарный поиск</a>
+    <a href="hashing.html">Хеширование →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script src="assets/algo.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  const VOWELS = new Set([...'аеёиоуыэюяaeiouy']);
+  let dir = 'asc';
+  let steps = [];
+
+  const player = S.mountPlayer($('stage'), {
+    autoplay: 1100,
+    render(canvas, step){
+      canvas.classList.add('compact');
+      canvas.innerHTML = step.html || '';
+    }
+  });
+
+  function isLetter(ch){ return /^[A-Za-zА-Яа-яЁё]$/.test(ch); }
+  function isVowel(ch){ return VOWELS.has(ch.toLowerCase()); }
+  function kind(ch){
+    if(isVowel(ch)) return 'гласная';
+    if(/^[ьъ]$/i.test(ch)) return 'другая буква';
+    if(/^[A-Za-z]$/.test(ch) || /^[А-Яа-яЁё]$/.test(ch)) return 'согласная';
+    return 'другая буква';
+  }
+
+  function build(){
+    const raw = [...$('inp').value].filter(isLetter).slice(0, 24);
+    const onlyV = $('vow').checked, onlyC = $('cons').checked;
+    const asc = dir === 'asc';
+    steps = [];
+    let C = 0, M = 0;
+
+    if(!raw.length){
+      player.setSteps([{title:'Нет букв', text:'Введите хотя бы одну букву.', html:''}]);
+      $('indexStats').innerHTML = '';
+      return;
+    }
+
+    const eligible = raw.map((ch, i) => ({ch, i, ok: onlyV ? isVowel(ch) : onlyC ? (kind(ch) === 'согласная') : true}));
+    const filterName = onlyV ? 'только гласные' : onlyC ? 'только согласные' : 'все буквы';
+
+    function htmlFor(marks, pairs, extra){
+      marks = marks || {};
+      let h = S.indexLine(raw, marks);
+      if(pairs) h += S.pairLine(pairs, marks.pairs || {});
+      if(extra) h += extra;
+      return h;
+    }
+
+    steps.push({
+      title:'Исходная строка',
+      text:`Строка: <b>${raw.map(S.esc).join('')}</b>. Фильтр: <b>${filterName}</b>, порядок: <b>${asc ? 'по возрастанию' : 'по убыванию'}</b>.<span class="l">Сначала отметим, какие буквы попадут в индекс, затем соберём пары «позиция — символ» и упорядочим их.</span>`,
+      html: htmlFor({}, null)
+    });
+
+    const pairs = [];
+    eligible.forEach((e, k) => {
+      const on = eligible.filter(x => x.ok).map(x => x.i);
+      steps.push({
+        title: `Позиция ${e.i}: «${e.ch}»`,
+        text: e.ok
+          ? `«<b>${S.esc(e.ch)}</b>» — ${kind(e.ch)}, проходит фильтр. Добавляем пару <b>(поз. ${e.i}, «${S.esc(e.ch)}»)</b>.`
+          : `«<b>${S.esc(e.ch)}</b>» — ${kind(e.ch)}, фильтр <b>${filterName}</b> не проходит. Пропускаем.`,
+        html: htmlFor({on, off: eligible.filter(x => !x.ok).map(x => x.i), hot:[e.i]}, pairs.slice())
+      });
+      if(e.ok) pairs.push({ch:e.ch, pos:e.i});
+    });
+
+    if(!pairs.length){
+      steps.push({
+        title:'В индекс ничего не попало',
+        text:`Среди букв нет подходящих под фильтр «<b>${filterName}</b>». Выберите другой фильтр или добавьте буквы.`,
+        html: htmlFor({off: raw.map((_, i) => i)}, [])
+      });
+      player.setSteps(steps);
+      $('indexStats').innerHTML = `<span class="pill">Выбрано: <b>0</b></span><span class="pill">Фильтр: <b>${filterName}</b></span>`;
+      return;
+    }
+
+    steps.push({
+      title:'Пары собраны',
+      text:`Получилось <b>${pairs.length}</b> пар «позиция — символ». Теперь упорядочим их по символу ${asc ? 'по возрастанию' : 'по убыванию'} устойчивой сортировкой вставками: одинаковые буквы сохранят исходный порядок.`,
+      html: htmlFor({on: pairs.map(p => p.pos)}, pairs.slice())
+    });
+
+    function snapshot(marks, extra){
+      return htmlFor({on: pairs.map(p => p.pos)}, pairs.slice(), extra);
+    }
+
+    for(let i = 1; i < pairs.length; i++){
+      const key = pairs[i];
+      let j = i - 1;
+      steps.push({
+        title:`Вставляем «${key.ch}» (поз. ${key.pos})`,
+        text:`Берём пару <b>(поз. ${key.pos}, «${S.esc(key.ch)}»)</b> и ищем ей место в уже упорядоченной левой части.`,
+        html: snapshot({pairs:{move:[i]}})
+      });
+      while(j >= 0){
+        C++;
+        const before = asc ? S.code(pairs[j].ch) > S.code(key.ch) : S.code(pairs[j].ch) < S.code(key.ch);
+        steps.push({
+          title:`Сравнение «${pairs[j].ch}» и «${key.ch}»`,
+          text:`«<b>${S.esc(pairs[j].ch)}</b>» (поз. ${pairs[j].pos}) и ключ «<b>${S.esc(key.ch)}</b>» (поз. ${key.pos}): ${before ? 'ключ должен стоять раньше' : 'порядок уже верный'}. Сравнений: <b>${C}</b>.`,
+          html: snapshot({pairs:{cmp:[j]}})
+        });
+        if(!before) break;
+        pairs[j + 1] = pairs[j];
+        M++;
+        steps.push({
+          title:'Сдвиг пары вправо',
+          text:`«<b>${S.esc(pairs[j].ch)}</b>» (поз. ${pairs[j].pos}) сдвигается на одну позицию вправо.`,
+          html: snapshot({pairs:{move:[j + 1]}})
+        });
+        j--;
+      }
+      pairs[j + 1] = key;
+      M++;
+      steps.push({
+        title:`«${key.ch}» на месте ${j + 1}`,
+        text:`Пара <b>(поз. ${key.pos}, «${S.esc(key.ch)}»)</b> заняла позицию ${j + 1} в индексном массиве.`,
+        html: snapshot({pairs:{move:[j + 1]}})
+      });
+    }
+
+    const indexArr = pairs.map(p => p.pos);
+    const decoded = pairs.map(p => p.ch).join('');
+    const readRule = indexArr.length === 1
+      ? `единственный символ результата находится в позиции ${indexArr[0]} исходной строки`
+      : `первый символ результата находится в позиции ${indexArr[0]} исходной строки, последний — в позиции ${indexArr[indexArr.length - 1]}`;
+    const out = `<div class="index-out">Индексный массив: [${indexArr.join(', ')}]</div><div class="meta" style="margin-top:7px">Символы по индексам: <b>${S.esc(decoded)}</b> · длина индекса: <b>${indexArr.length}</b></div>`;
+    steps.push({
+      title:'Индексный массив готов',
+      text:`Индексный массив: <b>[${indexArr.join(', ')}]</b>.<span class="l">Он читается так: ${readRule}. Сравнений при сортировке: <b>${C}</b>, перемещений пар: <b>${M}</b>.</span>`,
+      html: htmlFor({on: indexArr, pick:indexArr[0]}, pairs.slice(), out)
+    });
+
+    player.setSteps(steps);
+    $('indexStats').innerHTML = `<span class="pill accent">Выбрано: <b>${indexArr.length}</b> из ${raw.length}</span><span class="pill">Сравнений: <b>${C}</b></span><span class="pill">Направление: <b>${asc ? '↑' : '↓'}</b></span><span class="pill">Фильтр: <b>${filterName}</b></span>`;
+  }
+
+  $('dirTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-dir]');
+    if(!b) return;
+    dir = b.dataset.dir;
+    [...$('dirTabs').querySelectorAll('.tab')].forEach(x => x.classList.toggle('on', x === b));
+    build();
+  });
+  $('vow').addEventListener('change', () => { if($('vow').checked) $('cons').checked = false; build(); });
+  $('cons').addEventListener('change', () => { if($('cons').checked) $('vow').checked = false; build(); });
+  $('go').onclick = build;
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

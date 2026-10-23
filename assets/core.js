@@ -135,7 +135,7 @@
     const hi = o.hi === undefined ? -1 : o.hi;
     const mid = o.mid === undefined ? -1 : o.mid;
     const done = o.done ? new Set(o.done) : null;
-    let h = '<div class="strip">';
+    let h = '<div class="strip' + (o.cls ? ' ' + o.cls : '') + '">';
     items.forEach((it, i) => {
       const key = (it && typeof it === 'object') ? it.k : it;
       const sub = (it && typeof it === 'object') ? it.w : (o.index ? i : null);

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сортировки по шагам — 9 алгоритмов</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все разделы</a>
+  <span class="crumb">Сортировки</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Сортировки по шагам</h1>
+  <p class="lead">Девять алгоритмов сортировки символов. На каждом шаге видно, какие элементы сравниваются и какие перемещаются, а отдельное окошко показывает счётчики <b>C</b> (сравнения) и <b>M</b> (перемещения).</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Буквы для сортировки</label>
+        <input id="inp" value="KDBACFGE" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Например: KDBACFGE">
+      </div>
+      <button class="p" id="go" type="button">Построить</button>
+      <button id="ex" type="button">Пример</button>
+    </div>
+    <div class="meta" style="margin-top:9px">До 16 символов, повторы разрешены. Порядок сравнивается по коду символа.</div>
+  </section>
+
+  <div class="row tabs wrap" id="algoTabs" role="tablist" aria-label="Алгоритм сортировки">
+    <button type="button" class="tab on" data-algo="select">SelectSort</button>
+    <button type="button" class="tab" data-algo="bubble">BubbleSort</button>
+    <button type="button" class="tab" data-algo="shaker">ShakerSort</button>
+    <button type="button" class="tab" data-algo="insert">InsertSort</button>
+    <button type="button" class="tab" data-algo="shell">ShellSort</button>
+    <button type="button" class="tab" data-algo="heap">HeapSort</button>
+    <button type="button" class="tab" data-algo="quick">QuickSort</button>
+    <button type="button" class="tab" data-algo="merge">MergeSort</button>
+    <button type="button" class="tab" data-algo="radix">DigitalSort</button>
+  </div>
+
+  <section class="card" id="algoInfo"></section>
+
+  <div class="sort-layout">
+    <div id="stage"></div>
+    <aside class="meter-box" aria-live="polite">
+      <h3>Счётчики</h3>
+      <div class="meter-grid">
+        <div class="meter c"><b id="mC">0</b><span>C — сравнения</span></div>
+        <div class="meter m"><b id="mM">0</b><span>M — перемещения</span></div>
+      </div>
+      <div class="meter-delta" id="mDelta">На шаге: +0 сравнений, +0 перемещений.</div>
+      <div class="meter-note">Запись элемента в массив — 1 перемещение, обмен двух элементов — 3. В слиянии учитывается и копирование во вспомогательный массив; в цифровой сортировке ключи не сравниваются, поэтому C = 0.</div>
+    </aside>
+  </div>
+
+  <details>
+    <summary>Как считаются C и M</summary>
+    <p><b>C</b> — число сравнений двух ключей. Сравнение, которое закончило внутренний цикл (например, <code>a[j] &lt;= key</code>), тоже учитывается: оно реально было выполнено.</p>
+    <p><b>M</b> — число записей элемента в массив. Обмен <code>a[i] ↔ a[j]</code> через временную переменную — это три записи, поэтому M увеличивается на 3. Вставка сдвигом учитывает каждое присваивание <code>a[j+1] = a[j]</code> и запись ключа на место. В сортировке слиянием дополнительно считаются записи во вспомогательные половины.</p>
+    <p>Счётчики не зависят от пауз и анимации: это суммы по реально выполненным операциям выбранного алгоритма на данном наборе.</p>
+  </details>
+
+  <details>
+    <summary>Сложность всех девяти алгоритмов</summary>
+    <div class="table-wrap">
+      <table class="cmp">
+        <thead><tr><th>Алгоритм</th><th>Лучший случай</th><th>Средний</th><th>Худший</th><th>Память</th><th>Устойчивость</th></tr></thead>
+        <tbody>
+          <tr><td>SelectSort</td><td>O(n²)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td>нет</td></tr>
+          <tr><td>BubbleSort</td><td>O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td>да</td></tr>
+          <tr><td>ShakerSort</td><td>O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td>да</td></tr>
+          <tr><td>InsertSort</td><td>O(n)</td><td>O(n²)</td><td>O(n²)</td><td>O(1)</td><td>да</td></tr>
+          <tr><td>ShellSort</td><td>O(n log n)</td><td>≈O(n<sup>1.25</sup>)</td><td>O(n²)</td><td>O(1)</td><td>нет</td></tr>
+          <tr><td>HeapSort</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td>O(1)</td><td>нет</td></tr>
+          <tr><td>QuickSort</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n²)</td><td>O(log n)</td><td>нет</td></tr>
+          <tr><td>MergeSort</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n log n)</td><td>O(n)</td><td>да</td></tr>
+          <tr><td>DigitalSort</td><td>O(n·k)</td><td>O(n·k)</td><td>O(n·k)</td><td>O(n + b)</td><td>да</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px">Для цифровой сортировки <code>k</code> — число разрядов ключа, <code>b</code> — основание (здесь 10 десятичных цифр). Для односимвольных ключей число проходов определяется кодом символа.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="index.html">← Все разделы</a>
+    <a href="binary-search.html">Бинарный поиск →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script src="assets/algo.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  const MAX = 16;
+  let curAlgo = 'select';
+  let steps = [], arr = [], C = 0, M = 0, seenC = 0, seenM = 0;
+
+  const ALGOS = {
+    select: {
+      name:'SelectSort', ru:'Сортировка выбором', idea:'На каждом проходе находим минимальный элемент в неотсортированной части и меняем его с первым элементом этой части.',
+      best:'O(n²)', avg:'O(n²)', worst:'O(n²)', mem:'O(1)', stable:'нет', moves:'≈ n обменов',
+      run: runSelect
+    },
+    bubble: {
+      name:'BubbleSort', ru:'Сортировка пузырьком', idea:'Соседние элементы сравниваются парами; если левый больше правого, они меняются. За проход самый большой элемент «всплывает» в конец.',
+      best:'O(n)', avg:'O(n²)', worst:'O(n²)', mem:'O(1)', stable:'да', moves:'до n(n−1)/2 обменов',
+      run: runBubble
+    },
+    shaker: {
+      name:'ShakerSort', ru:'Шейкерная сортировка', idea:'Улучшенный пузырёк: проход идёт сначала слева направо, затем справа налево, а границы сужаются с обеих сторон.',
+      best:'O(n)', avg:'O(n²)', worst:'O(n²)', mem:'O(1)', stable:'да', moves:'до n(n−1)/2 обменов',
+      run: runShaker
+    },
+    insert: {
+      name:'InsertSort', ru:'Сортировка вставками', idea:'Берём очередной элемент и вставляем его в уже отсортированную левую часть, сдвигая большие элементы вправо.',
+      best:'O(n)', avg:'O(n²)', worst:'O(n²)', mem:'O(1)', stable:'да', moves:'до n²/4 сдвигов',
+      run: runInsert
+    },
+    shell: {
+      name:'ShellSort', ru:'Сортировка Шелла', idea:'Сначала сравниваем и сортируем элементы на расстоянии gap, постепенно уменьшая gap до 1. На последнем проходе это обычная сортировка вставками, но массив уже почти упорядочен.',
+      best:'O(n log n)', avg:'≈ O(n^1.25)', worst:'O(n²)', mem:'O(1)', stable:'нет', moves:'зависит от шагов',
+      run: runShell
+    },
+    heap: {
+      name:'HeapSort', ru:'Пирамидальная сортировка', idea:'Строим из массива двоичную кучу (max-heap), затем многократно переносим корень-максимум в конец и восстанавливаем кучу.',
+      best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', mem:'O(1)', stable:'нет', moves:'≈ 3n log n',
+      run: runHeap
+    },
+    quick: {
+      name:'QuickSort', ru:'Быстрая сортировка', idea:'Выбираем опорный элемент (последний в отрезке), разделяем массив на меньшие и большие, ставим опору на место и рекурсивно сортируем обе части.',
+      best:'O(n log n)', avg:'O(n log n)', worst:'O(n²)', mem:'O(log n)', stable:'нет', moves:'зависит от разбиений',
+      run: runQuick
+    },
+    merge: {
+      name:'MergeSort', ru:'Сортировка слиянием', idea:'Делим массив пополам, рекурсивно сортируем половины и сливаем два упорядоченных отрезка во вспомогательный массив.',
+      best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', mem:'O(n)', stable:'да', moves:'≈ n log n',
+      run: runMerge
+    },
+    radix: {
+      name:'DigitalSort (RadixSort)', ru:'Цифровая сортировка', idea:'Раскладываем ключи по карманам по очередному разряду кода символа, начиная с младшего, и каждый раз собираем карманы по порядку. Ключи между собой не сравниваются.',
+      best:'O(n·k)', avg:'O(n·k)', worst:'O(n·k)', mem:'O(n + b)', stable:'да', moves:'2n на каждый проход',
+      run: runRadix
+    }
+  };
+
+  const player = S.mountPlayer($('stage'), {
+    autoplay: 1100,
+    render(canvas, step){
+      canvas.classList.remove('compact');
+      S.renderSortStep(canvas, step);
+      if(step.heap){
+        const host = document.createElement('div');
+        host.className = 'tree-host';
+        host.style.marginTop = '4px';
+        host.innerHTML = S.renderHeap(step);
+        canvas.appendChild(host);
+      }
+    },
+    onStep(s){
+      $('mC').textContent = s.C || 0;
+      $('mM').textContent = s.M || 0;
+      $('mDelta').innerHTML = `На шаге: <b>+${s.dC || 0}</b> сравнений, <b>+${s.dM || 0}</b> перемещений.`;
+    }
+  });
+
+  function rec(title, text, extra){
+    extra = extra || {};
+    const dC = C - seenC, dM = M - seenM;
+    seenC = C; seenM = M;
+    const step = Object.assign({
+      title, text,
+      arr: arr.slice(),
+      C, M, dC, dM,
+      done: extra.done ? extra.done.slice() : []
+    }, extra);
+    step.done = (extra.done || []).slice();
+    steps.push(step);
+  }
+
+  function swap(a, i, j){
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+    M += 3;
+  }
+
+  function finish(a){
+    const done = a.map((_, i) => i);
+    rec('Готово: массив отсортирован', `Итог: <b>${a.map(S.esc).join(' ')}</b>. Всего сравнений <b>C = ${C}</b>, перемещений <b>M = ${M}</b>.<span class="l">Проверьте: каждый следующий символ не меньше предыдущего. Счётчики накоплены за весь прогон алгоритма.</span>`, {done, caption:'Отсортировано'});
+  }
+
+  function runSelect(a){
+    const n = a.length, done = [];
+    for(let i = 0; i < n - 1; i++){
+      let min = i;
+      rec(`Проход ${i + 1}: ищем минимум`, `Просматриваем позиции <b>${i}…${n - 1}</b>. Пока минимум — «<b>${S.esc(a[i])}</b>» в позиции ${i}.`, {done, tags:{[i]:'старт'}});
+      for(let j = i + 1; j < n; j++){
+        C++;
+        rec(`Сравнение «${a[j]}» и «${a[min]}»`, `Сравниваем <b>${S.esc(a[j])}</b> (поз. ${j}) с текущим минимумом <b>${S.esc(a[min])}</b> (поз. ${min}).`, {cmp:[j, min], done, tags:{[min]:'min'}});
+        if(S.code(a[j]) < S.code(a[min])){
+          min = j;
+          rec('Новый минимум', `«<b>${S.esc(a[j])}</b>» меньше — запоминаем позицию ${j} как новую позицию минимума.`, {cmp:[j], done, tags:{[j]:'min'}});
+        }
+      }
+      if(min !== i){
+        const left = a[i], pick = a[min];
+        swap(a, i, min);
+        rec('Обмен с минимумом', `Меняем местами «<b>${S.esc(left)}</b>» (поз. ${i}) и «<b>${S.esc(pick)}</b>» (поз. ${min}). Обмен — 3 перемещения.`, {move:[i, min], done});
+      } else {
+        rec('Минимум уже на месте', `«<b>${S.esc(a[i])}</b>» и так стоит в позиции ${i} — обмен не нужен.`, {done, tags:{[i]:'на месте'}});
+      }
+      done.push(i);
+      rec(`Позиция ${i} закреплена`, `Элемент «<b>${S.esc(a[i])}</b>» стоит на своём окончательном месте. Неотсортированная часть начинается с ${i + 1}.`, {done:done.slice(), tags:{[i]:'готово'}});
+    }
+    done.push(n - 1);
+    finish(a);
+  }
+
+  function runBubble(a){
+    const n = a.length, done = [];
+    for(let i = 0; i < n - 1; i++){
+      let swapped = false;
+      rec(`Проход ${i + 1}`, `Идём слева направо до позиции ${n - 1 - i}. В конце прохода максимум окажется справа.`, {done});
+      for(let j = 0; j < n - 1 - i; j++){
+        C++;
+        rec(`Сравнение «${a[j]}» и «${a[j + 1]}»`, `Сравниваем соседей в позициях ${j} и ${j + 1}.`, {cmp:[j, j + 1], done});
+        if(S.code(a[j]) > S.code(a[j + 1])){
+          const x = a[j], y = a[j + 1];
+          swap(a, j, j + 1);
+          swapped = true;
+          rec('Обмен соседей', `«<b>${S.esc(x)}</b>» больше «<b>${S.esc(y)}</b>» — меняем соседей местами. Больший элемент движется вправо.`, {move:[j, j + 1], done});
+        }
+      }
+      done.push(n - 1 - i);
+      rec(`Максимум прохода — в позиции ${n - 1 - i}`, `Элемент «<b>${S.esc(a[n - 1 - i])}</b>» занял окончательное место.`, {done:done.slice(), tags:{[n - 1 - i]:'готово'}});
+      if(!swapped){
+        rec('Обменов не было — готово', `За проход не произошло ни одного обмена, значит массив уже отсортирован. Выходим досрочно.`, {done:a.map((_, k) => k)});
+        return finish(a);
+      }
+    }
+    finish(a);
+  }
+
+  function runShaker(a){
+    const n = a.length, done = [];
+    let left = 0, right = n - 1;
+    while(left < right){
+      rec(`Проход вправо: ${left}…${right}`, `Слева направо поднимаем максимум к правой границе ${right}.`, {done});
+      for(let j = left; j < right; j++){
+        C++;
+        rec(`Сравнение «${a[j]}» и «${a[j + 1]}»`, `Сравниваем соседей в позициях ${j} и ${j + 1}.`, {cmp:[j, j + 1], done});
+        if(S.code(a[j]) > S.code(a[j + 1])){
+          const x = a[j], y = a[j + 1];
+          swap(a, j, j + 1);
+          rec('Обмен соседей', `Меняем «<b>${S.esc(x)}</b>» и «<b>${S.esc(y)}</b>»: больший идёт вправо.`, {move:[j, j + 1], done});
+        }
+      }
+      done.push(right);
+      rec(`Правая граница ${right} закреплена`, `«<b>${S.esc(a[right])}</b>» — максимум отрезка. Сужаем отрезок справа.`, {done:done.slice(), tags:{[right]:'готово'}});
+      right--;
+      if(left >= right) break;
+      rec(`Проход влево: ${right}…${left}`, `Теперь идём справа налево и опускаем минимум к левой границе ${left}.`, {done});
+      for(let j = right; j > left; j--){
+        C++;
+        rec(`Сравнение «${a[j - 1]}» и «${a[j]}»`, `Сравниваем соседей в позициях ${j - 1} и ${j}.`, {cmp:[j - 1, j], done});
+        if(S.code(a[j - 1]) > S.code(a[j])){
+          const x = a[j - 1], y = a[j];
+          swap(a, j - 1, j);
+          rec('Обмен соседей', `Меняем «<b>${S.esc(x)}</b>» и «<b>${S.esc(y)}</b>»: меньший идёт влево.`, {move:[j - 1, j], done});
+        }
+      }
+      done.push(left);
+      rec(`Левая граница ${left} закреплена`, `«<b>${S.esc(a[left])}</b>» — минимум отрезка. Сужаем отрезок слева.`, {done:done.slice(), tags:{[left]:'готово'}});
+      left++;
+    }
+    finish(a);
+  }
+
+  function runInsert(a){
+    const n = a.length, done = [0];
+    for(let i = 1; i < n; i++){
+      const key = a[i];
+      rec(`Берём «${key}»`, `Элемент «<b>${S.esc(key)}</b>» из позиции ${i} вставляем в отсортированную часть <b>0…${i - 1}</b>.`, {move:[i], done:done.slice(), tags:{[i]:'key'}});
+      let j = i - 1;
+      while(j >= 0){
+        C++;
+        rec(`Сравнение с «${a[j]}»`, `Сравниваем ключ «<b>${S.esc(key)}</b>» с «<b>${S.esc(a[j])}</b>» в позиции ${j}.`, {cmp:[j], done:done.slice(), tags:{[j]:'сравнение'}});
+        if(S.code(a[j]) <= S.code(key)) break;
+        a[j + 1] = a[j];
+        M++;
+        rec('Сдвиг вправо', `«<b>${S.esc(a[j])}</b>» больше ключа — сдвигаем его на позицию ${j + 1}.`, {move:[j + 1], done:done.slice()});
+        j--;
+      }
+      if(j + 1 !== i){
+        a[j + 1] = key;
+        M++;
+      }
+      done.push(i);
+      rec(`«${key}» вставлен в позицию ${j + 1}`, `Отсортированная часть теперь <b>0…${i}</b>. Сдвигов и записей на этом шаге накопилось M = ${M}.`, {move:[j + 1], done:done.slice(), tags:{[j + 1]:'вставлен'}});
+    }
+    finish(a);
+  }
+
+  function runShell(a){
+    const n = a.length;
+    let gap = Math.floor(n / 2);
+    while(gap > 0){
+      rec(`Шаг gap = ${gap}`, `Сортируем вставками элементы, стоящие друг от друга на расстоянии ${gap}. Затем уменьшим gap.`, {caption:`gap = ${gap}`});
+      for(let i = gap; i < n; i++){
+        const key = a[i];
+        rec(`«${key}» с шагом ${gap}`, `Вставляем «<b>${S.esc(key)}</b>» в последовательность позиций i, i−gap, i−2gap, …`, {move:[i], caption:`gap = ${gap}`});
+        let j = i - gap;
+        while(j >= 0){
+          C++;
+          rec(`Сравнение «${a[j]}» и «${key}»`, `Сравниваем «<b>${S.esc(a[j])}</b>» (поз. ${j}) с ключом «<b>${S.esc(key)}</b>».`, {cmp:[j], caption:`gap = ${gap}`});
+          if(S.code(a[j]) <= S.code(key)) break;
+          a[j + gap] = a[j];
+          M++;
+          rec('Сдвиг на gap', `«<b>${S.esc(a[j])}</b>» больше ключа — переносим его на ${gap} позиций вправо.`, {move:[j + gap], caption:`gap = ${gap}`});
+          j -= gap;
+        }
+        if(j + gap !== i){
+          a[j + gap] = key;
+          M++;
+        }
+        rec(`«${key}» на месте`, `Ключ занял позицию ${j + gap}. Последовательность с шагом ${gap} упорядочена.`, {move:[j + gap], caption:`gap = ${gap}`});
+      }
+      gap = Math.floor(gap / 2);
+    }
+    finish(a);
+  }
+
+  function runHeap(a){
+    const n = a.length, done = [];
+    function sift(start, end, why){
+      let root = start;
+      while(2 * root + 1 <= end){
+        let child = 2 * root + 1;
+        if(child + 1 <= end){
+          C++;
+          rec('Сравнение потомков', `Сравниваем детей узла ${root}: позиции ${child} и ${child + 1}.`, {cmp:[child, child + 1], done:done.slice(), heap:true, heapSize:end + 1, caption:why});
+          if(S.code(a[child + 1]) > S.code(a[child])) child++;
+        }
+        C++;
+        rec('Сравнение с родителем', `Сравниваем родителя «<b>${S.esc(a[root])}</b>» с большим ребёнком «<b>${S.esc(a[child])}</b>».`, {cmp:[root, child], done:done.slice(), heap:true, heapSize:end + 1, caption:why});
+        if(S.code(a[root]) >= S.code(a[child])) break;
+        const parent = a[root], kid = a[child];
+        swap(a, root, child);
+        rec('Обмен с ребёнком', `«<b>${S.esc(parent)}</b>» меньше «<b>${S.esc(kid)}</b>» — меняем их местами, чтобы максимум поднялся выше.`, {move:[root, child], done:done.slice(), heap:true, heapSize:end + 1, caption:why});
+        root = child;
+      }
+    }
+    rec('Строим max-кучу', `Представляем массив как двоичное дерево: дети позиции i — это 2i+1 и 2i+2. Начинаем с последнего внутреннего узла.`, {heap:true, heapSize:n});
+    for(let start = Math.floor(n / 2) - 1; start >= 0; start--){
+      rec(`Просеиваем узел ${start}`, `Восстанавливаем свойство кучи в поддереве с корнем ${start}: родитель должен быть не меньше детей.`, {pivot:start, heap:true, heapSize:n, caption:'построение кучи'});
+      sift(start, n - 1, 'построение кучи');
+    }
+    rec('Куча построена', `Максимум «<b>${S.esc(a[0])}</b>» стоит в корне. Теперь переносим его в конец и уменьшаем кучу.`, {done, heap:true, heapSize:n});
+    for(let end = n - 1; end > 0; end--){
+      swap(a, 0, end);
+      done.push(end);
+      rec(`Максимум в позицию ${end}`, `Меняем корень и последний элемент кучи. «<b>${S.esc(a[end])}</b>» занял окончательное место.`, {move:[0, end], done:done.slice(), heap:true, heapSize:end, caption:'извлечение максимума'});
+      sift(0, end - 1, 'восстановление кучи');
+    }
+    done.push(0);
+    finish(a);
+  }
+
+  function runQuick(a){
+    const n = a.length, done = [];
+    function qs(lo, hi){
+      if(lo > hi) return;
+      if(lo === hi){
+        done.push(lo);
+        rec(`Отрезок [${lo}] готов`, `Один элемент уже стоит на своём месте.`, {done:done.slice(), tags:{[lo]:'готово'}});
+        return;
+      }
+      const pv = a[hi];
+      rec(`Разбиение [${lo}…${hi}]`, `Опорный элемент — «<b>${S.esc(pv)}</b>» в позиции ${hi}. Влево пойдут элементы не больше опоры, вправо — больше.`, {pivot:hi, done:done.slice(), tags:{[hi]:'pivot'}});
+      let i = lo;
+      for(let j = lo; j < hi; j++){
+        C++;
+        rec(`Сравнение «${a[j]}» с опорой`, `«<b>${S.esc(a[j])}</b>» ${S.code(a[j]) <= S.code(pv) ? '≤' : '>'} «<b>${S.esc(pv)}</b>».`, {cmp:[j, hi], pivot:hi, done:done.slice(), tags:{[hi]:'pivot'}});
+        if(S.code(a[j]) <= S.code(pv)){
+          if(i !== j){
+            const x = a[i], y = a[j];
+            swap(a, i, j);
+            rec('Обмен в левую часть', `«<b>${S.esc(y)}</b>» не больше опоры — меняем его с «<b>${S.esc(x)}</b>» в позиции ${i}, расширяя левую часть.`, {move:[i, j], pivot:hi, done:done.slice(), tags:{[hi]:'pivot'}});
+          }
+          i++;
+        }
+      }
+      if(i !== hi){
+        const moved = a[hi];
+        swap(a, i, hi);
+        rec('Опора на своё место', `Ставим опору «<b>${S.esc(moved)}</b>» в позицию ${i}. Слева — не больше, справа — больше.`, {move:[i, hi], done:done.slice(), tags:{[i]:'pivot'}});
+      }
+      done.push(i);
+      rec(`Опора закреплена в ${i}`, `Элемент «<b>${S.esc(a[i])}</b>» больше не будет перемещаться. Рекурсивно сортируем [${lo}…${i - 1}] и [${i + 1}…${hi}].`, {done:done.slice(), tags:{[i]:'готово'}});
+      qs(lo, i - 1);
+      qs(i + 1, hi);
+    }
+    qs(0, n - 1);
+    finish(a);
+  }
+
+  function runMerge(a){
+    const n = a.length, done = [];
+    function auxHTML(L, R, i, j){
+      const part = (x, from) => x.slice(from).map(c => `<span class="chip">${S.esc(c)}</span>`).join('') || '<span class="meta">∅</span>';
+      return `<b>L:</b> ${part(L, i)} <b>R:</b> ${part(R, j)}`;
+    }
+    function mark(lo, hi){
+      for(let k = lo; k <= hi; k++) if(!done.includes(k)) done.push(k);
+    }
+    function merge(lo, mid, hi){
+      const L = a.slice(lo, mid + 1), R = a.slice(mid + 1, hi + 1);
+      M += L.length + R.length;
+      rec(`Слияние [${lo}…${mid}] и [${mid + 1}…${hi}]`, `Копируем половины во вспомогательные массивы (${L.length + R.length} записей) и сливаем их по возрастанию.`, {done:done.slice(), aux:auxHTML(L, R, 0, 0), caption:`отрезок [${lo}…${hi}]`});
+      let i = 0, j = 0, k = lo;
+      while(i < L.length && j < R.length){
+        C++;
+        rec('Сравнение голов половин', `Сравниваем «<b>${S.esc(L[i])}</b>» из L и «<b>${S.esc(R[j])}</b>» из R.`, {cmp:[k], done:done.slice(), aux:auxHTML(L, R, i, j)});
+        if(S.code(L[i]) <= S.code(R[j])){
+          a[k] = L[i]; M++;
+          rec('Запись из левой половины', `«<b>${S.esc(L[i])}</b>» ≤ «<b>${S.esc(R[j])}</b>» — переносим левый элемент в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i + 1, j)});
+          i++;
+        } else {
+          a[k] = R[j]; M++;
+          rec('Запись из правой половины', `«<b>${S.esc(R[j])}</b>» меньше — переносим правый элемент в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i, j + 1)});
+          j++;
+        }
+        k++;
+      }
+      while(i < L.length){
+        a[k] = L[i]; M++;
+        rec('Остаток левой половины', `Правая половина закончилась — переносим «<b>${S.esc(L[i])}</b>» в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i + 1, j)});
+        i++; k++;
+      }
+      while(j < R.length){
+        a[k] = R[j]; M++;
+        rec('Остаток правой половины', `Левая половина закончилась — переносим «<b>${S.esc(R[j])}</b>» в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i, j + 1)});
+        j++; k++;
+      }
+      mark(lo, hi);
+      rec(`Отрезок [${lo}…${hi}] слит`, `Элементы отрезка упорядочены. Возвращаемся на уровень выше.`, {done:done.slice(), caption:`отрезок [${lo}…${hi}]`});
+    }
+    function msort(lo, hi){
+      if(lo >= hi) return;
+      const mid = Math.floor((lo + hi) / 2);
+      rec(`Делим [${lo}…${hi}]`, `Середина — ${mid}. Левая часть [${lo}…${mid}], правая [${mid + 1}…${hi}].`, {done:done.slice(), caption:`деление [${lo}…${hi}]`});
+      msort(lo, mid);
+      msort(mid + 1, hi);
+      merge(lo, mid, hi);
+    }
+    msort(0, n - 1);
+    finish(a);
+  }
+
+  function runRadix(a){
+    const n = a.length, done = [];
+    const maxCode = Math.max.apply(null, a.map(S.code));
+    const digits = String(maxCode).length;
+    rec('Цифровая сортировка (LSD)', `Сортируем по десятичным разрядам кодов символов, начиная с младшего. На каждом проходе раскладываем ключи в 10 карманов и собираем их по порядку. Ключи не сравниваются.`, {caption:`разрядов: ${digits}`});
+    let exp = 1;
+    for(let pass = 1; pass <= digits; pass++, exp *= 10){
+      const buckets = Array.from({length:10}, () => []);
+      rec(`Проход ${pass}: разряд ${pass === 1 ? 'единиц' : pass === 2 ? 'десятков' : pass === 3 ? 'сотен' : 'тысяч'}`, `Раскладываем элементы по карманам 0…9 по цифре ${pass === 1 ? 'единиц' : pass === 2 ? 'десятков' : pass === 3 ? 'сотен' : 'тысяч'} кода символа.`, {buckets:buckets.map(b => b.slice()), bucketLabels:['0','1','2','3','4','5','6','7','8','9'], done:done.slice(), caption:`проход ${pass}`});
+      for(let i = 0; i < n; i++){
+        const d = Math.floor(S.code(a[i]) / exp) % 10;
+        buckets[d].push(a[i]);
+        M++;
+        rec(`«${a[i]}» → карман ${d}`, `Код символа «<b>${S.esc(a[i])}</b>» даёт цифру <b>${d}</b> в этом разряде. Кладём в карман ${d}; порядок внутри кармана сохраняется.`, {buckets:buckets.map(b => b.slice()), bucketLabels:['0','1','2','3','4','5','6','7','8','9'], hotBucket:d, move:[i], done:done.slice()});
+      }
+      a = buckets.flat();
+      arr = a;
+      M += a.length;
+      rec(`Собираем после прохода ${pass}`, `Читаем карманы по порядку 0→9 и записываем элементы обратно в массив (${a.length} записей). Теперь массив упорядочен по младшим ${pass} разрядам.`, {buckets:buckets.map(b => b.slice()), bucketLabels:['0','1','2','3','4','5','6','7','8','9'], done:done.slice(), caption:`проход ${pass} завершён`});
+    }
+    finish(a);
+  }
+
+  function infoHTML(a){
+    return `
+      <h2>${S.esc(a.name)} — ${S.esc(a.ru)}</h2>
+      <p class="meta" style="margin:0 0 8px">${S.esc(a.idea)}</p>
+      <div class="algo-grid">
+        <div class="algo-cell"><b>Лучший случай</b>${a.best}</div>
+        <div class="algo-cell"><b>Средний / худший</b>${a.avg} / ${a.worst}</div>
+        <div class="algo-cell"><b>Доп. память</b>${a.mem}</div>
+        <div class="algo-cell"><b>Устойчивость</b>${a.stable}</div>
+        <div class="algo-cell"><b>Перемещения</b>${a.moves}</div>
+      </div>`;
+  }
+
+  function build(){
+    const parsed = S.parseChars($('inp').value, MAX, true);
+    const chars = parsed.chars;
+    if(chars.length < 1){
+      player.setSteps([{title:'Мало данных', text:'Введите хотя бы один символ.', arr:[], C:0, M:0, dC:0, dM:0}]);
+      return;
+    }
+    arr = chars.slice();
+    C = 0; M = 0; seenC = 0; seenM = 0;
+    steps = [];
+    const algo = ALGOS[curAlgo];
+    $('algoInfo').innerHTML = infoHTML(algo);
+    rec('Исходный массив', `Сортируем <b>${arr.length}</b> символов алгоритмом <b>${S.esc(algo.name)}</b>: <b>${arr.map(S.esc).join(' ')}</b>.<span class="l">${S.esc(algo.idea)}</span>`, {caption:'исходный порядок'});
+    algo.run(arr);
+    player.setSteps(steps);
+    $('mC').textContent = '0';
+    $('mM').textContent = '0';
+    $('mDelta').innerHTML = 'На шаге: <b>+0</b> сравнений, <b>+0</b> перемещений.';
+  }
+
+  $('algoTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-algo]');
+    if(!b) return;
+    curAlgo = b.dataset.algo;
+    [...$('algoTabs').querySelectorAll('.tab')].forEach(x => x.classList.toggle('on', x === b));
+    build();
+  });
+  $('go').onclick = build;
+  $('ex').onclick = () => {
+    const pool = 'ABCDEFGHKLMNPRST'.split('');
+    for(let i = pool.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    $('inp').value = pool.slice(0, 8).join('');
+    build();
+  };
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

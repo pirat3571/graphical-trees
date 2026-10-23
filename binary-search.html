@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Бинарный поиск символа — два типа</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все разделы</a>
+  <span class="crumb">Бинарный поиск</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <h1>Бинарный поиск символа</h1>
+  <p class="lead">Два типа двоичного поиска в отсортированном массиве. Тип 1 ищет точное вхождение символа. Тип 2 ищет позицию вставки — первое место, где элемент не меньше искомого (lower bound). На каждом шаге видно, как сужается диапазон.</p>
+
+  <section class="card">
+    <div class="row">
+      <div class="field">
+        <label for="inp">Отсортированный набор букв</label>
+        <input id="inp" value="ACEFHKMPR" maxlength="40" autocomplete="off" spellcheck="false" placeholder="Например: ACEFHKMPR">
+      </div>
+      <div class="field" style="flex:0 1 150px">
+        <label for="target">Искомый символ</label>
+        <input id="target" value="P" maxlength="2" autocomplete="off" spellcheck="false" placeholder="P">
+      </div>
+      <button class="p" id="go" type="button">Искать</button>
+    </div>
+    <div class="meta" style="margin-top:9px">Если набор введён не по порядку, он будет отсортирован автоматически. Повторы сохраняются.</div>
+  </section>
+
+  <div class="row tabs wrap" id="typeTabs" role="tablist" aria-label="Тип бинарного поиска">
+    <button type="button" class="tab on" data-type="1">Тип 1 — точное вхождение</button>
+    <button type="button" class="tab" data-type="2">Тип 2 — позиция вставки</button>
+  </div>
+
+  <div id="stage"></div>
+  <div class="search-info" id="searchStats"></div>
+
+  <details>
+    <summary>Чем отличаются два типа</summary>
+    <p><b>Тип 1.</b> Проверяем средний элемент. Если он равен искомому — ответ найден. Если искомый меньше, продолжаем в левой половине, иначе — в правой. Когда <code>lo &gt; hi</code>, элемента в массиве нет.</p>
+    <p><b>Тип 2.</b> Ищем не сам элемент, а границу: первое место <code>pos</code>, где <code>a[pos] ≥ x</code>. Такой поиск возвращает позицию вставки, сохраняющую порядок, и корректно работает с повторами. Если <code>x</code> больше всех элементов, ответ — <code>n</code> (вставка в конец).</p>
+    <pre class="codeblock">// Тип 1: точное вхождение
+lo = 0; hi = n - 1;
+while (lo &lt;= hi) {
+  mid = (lo + hi) / 2;
+  if (a[mid] == x) return mid;
+  if (a[mid] &lt; x) lo = mid + 1;
+  else hi = mid - 1;
+}
+return -1;
+
+// Тип 2: lower bound
+lo = 0; hi = n;
+while (lo &lt; hi) {
+  mid = (lo + hi) / 2;
+  if (a[mid] &lt; x) lo = mid + 1;
+  else hi = mid;
+}
+return lo;</pre>
+  </details>
+
+  <details>
+    <summary>Почему поиск занимает O(log n)</summary>
+    <p>После каждого сравнения остаётся не более половины текущего диапазона. Количество шагов не превышает <code>⌈log₂(n + 1)⌉</code>, поэтому для 1000 элементов достаточно около 10 сравнений. Массив должен быть отсортирован — иначе отсечение половины не работает.</p>
+  </details>
+
+  <nav class="pager">
+    <a href="sort.html">← Сортировки</a>
+    <a href="indexing.html">Индексация →</a>
+  </nav>
+</main>
+<script src="assets/core.js"></script>
+<script src="assets/algo.js"></script>
+<script>
+(function(){
+  'use strict';
+  const S = window.TreeSite;
+  const $ = S.$;
+  let type = '1';
+  let steps = [];
+
+  const player = S.mountPlayer($('stage'), {
+    autoplay: 1200,
+    render(canvas, step){
+      canvas.classList.add('compact');
+      canvas.innerHTML = step.strip || '';
+    }
+  });
+
+  function rec(title, text, o){
+    o = o || {};
+    const items = (o.arr || []).map((ch, i) => ({k:ch, w:i}));
+    steps.push({
+      title, text,
+      strip: S.strip(items, {lo:o.lo, hi:o.hi, mid:o.mid, done:o.done, cls:'large'})
+    });
+  }
+
+  function build(){
+    const parsed = S.parseChars($('inp').value, 32, true);
+    let arr = parsed.chars.slice().sort((a, b) => S.code(a) - S.code(b));
+    let target = [...$('target').value.trim()][0] || '';
+    steps = [];
+
+    if(!arr.length || !target){
+      player.setSteps([{title:'Недостаточно данных', text:'Введите набор букв и один искомый символ.', strip:''}]);
+      $('searchStats').innerHTML = '';
+      return;
+    }
+
+    const sortedNote = parsed.chars.join('') !== arr.join('') ? ' Входной набор был отсортирован по коду символа.' : '';
+    if(type === '1') buildType1(arr, target, sortedNote);
+    else buildType2(arr, target, sortedNote);
+
+    player.setSteps(steps);
+  }
+
+  function buildType1(arr, target, note){
+    let lo = 0, hi = arr.length - 1, C = 0, found = -1;
+    rec('Тип 1: точное вхождение', `Ищем символ «<b>${S.esc(target)}</b>» в массиве из ${arr.length} элементов. Диапазон поиска — <b>[${lo}…${hi}]</b>.${note}<span class="l">Сравниваем искомый символ со средним элементом диапазона и отбрасываем ту половину, где его точно нет.</span>`, {arr, lo, hi, mid:Math.floor((lo + hi) / 2)});
+
+    while(lo <= hi){
+      const mid = Math.floor((lo + hi) / 2);
+      C++;
+      const v = arr[mid];
+      if(S.code(v) === S.code(target)){
+        rec(`Найдено в позиции ${mid}`, `Средний элемент «<b>${S.esc(v)}</b>» равен искомому. Ответ — индекс <b>${mid}</b>. Сравнений: <b>${C}</b>.<span class="l">Диапазон больше не сужается: точное вхождение найдено.</span>`, {arr, lo:0, hi:arr.length - 1, mid, done:[mid]});
+        found = mid;
+        break;
+      }
+      const less = S.code(target) < S.code(v);
+      rec(`Сравнение с «${v}»`, `«<b>${S.esc(target)}</b>» ${less ? '&lt;' : '&gt;'} «<b>${S.esc(v)}</b>» — искомый ${less ? 'левее' : 'правее'} середины. Сравнений: <b>${C}</b>.`, {arr, lo, hi, mid});
+      if(less) hi = mid - 1;
+      else lo = mid + 1;
+      rec('Сужаем диапазон', `Исключаем середину и ${less ? 'правую' : 'левую'} половину. Новый диапазон — <b>[${lo}…${hi}]</b>.`, {arr, lo, hi, mid:lo <= hi ? Math.floor((lo + hi) / 2) : -1});
+    }
+
+    if(found < 0){
+      rec('Элемент не найден', `Диапазон стал пустым: <code>lo = ${lo}</code>, <code>hi = ${hi}</code>, то есть <code>lo &gt; hi</code>. Символа «<b>${S.esc(target)}</b>» в массиве нет. Сравнений: <b>${C}</b>.<span class="l">В отсортированном массиве на месте ${lo} находится ближайший больший элемент${lo < arr.length ? `: «${S.esc(arr[lo])}»` : ''}.</span>`, {arr, lo:0, hi:arr.length - 1, done:[]});
+    }
+    $('searchStats').innerHTML = `<span class="pill accent">Сравнений: <b>${C}</b></span><span class="pill ${found >= 0 ? 'ok' : ''}">${found >= 0 ? `Индекс: <b>${found}</b>` : 'Не найдено'}</span><span class="pill">Тип: <b>1</b></span>`;
+  }
+
+  function buildType2(arr, target, note){
+    let lo = 0, hi = arr.length, C = 0;
+    rec('Тип 2: позиция вставки (lower bound)', `Ищем первое место, где элемент <b>≥ «${S.esc(target)}»</b>. Диапазон-кандидат — <b>[${lo}…${hi})</b>, правая граница не включается.${note}<span class="l">Если средний элемент меньше искомого, ответ точно правее него; иначе средний элемент ещё может оказаться ответом.</span>`, {arr, lo, hi:hi - 1, mid:Math.floor((lo + hi) / 2)});
+
+    while(lo < hi){
+      const mid = Math.floor((lo + hi) / 2);
+      C++;
+      const v = arr[mid];
+      const less = S.code(v) < S.code(target);
+      rec(`Сравнение с «${v}»`, `«<b>${S.esc(v)}</b>» ${less ? '&lt;' : '≥'} «<b>${S.esc(target)}</b>» — ${less ? 'ответ правее середины' : 'середина подходит, но слева может быть раньше'}. Сравнений: <b>${C}</b>.`, {arr, lo, hi:hi - 1, mid});
+      if(less) lo = mid + 1;
+      else hi = mid;
+      rec('Новая граница', `Диапазон-кандидат стал <b>[${lo}…${hi})</b>. ${hi - lo <= 1 ? 'В нём не больше одного элемента.' : 'Продолжаем деление.'}`, {arr, lo, hi:hi - 1, mid:lo < hi ? Math.floor((lo + hi) / 2) : -1});
+    }
+
+    const pos = lo;
+    let text;
+    if(pos >= arr.length) text = `Все элементы меньше «<b>${S.esc(target)}</b>», поэтому вставлять нужно в конец — позиция <b>${pos}</b>.`;
+    else if(S.code(arr[pos]) === S.code(target)) text = `Первое вхождение «<b>${S.esc(target)}</b>» — позиция <b>${pos}</b>. Вставка перед ним сохранит порядок; если нужно вставить после всех равных, это уже upper bound.`;
+    else text = `Первый элемент, не меньший искомого, — «<b>${S.esc(arr[pos])}» в позиции <b>${pos}</b>. Сюда можно вставить «<b>${S.esc(target)}</b>», не нарушив сортировку.`;
+    rec(`Позиция вставки: ${pos}`, `${text}<span class="l">Сравнений: <b>${C}</b>. Диапазон схлопнулся в точку <code>lo = hi = ${pos}</code>.</span>`, {arr, lo:0, hi:arr.length - 1, mid:pos < arr.length ? pos : -1, done:[]});
+
+    $('searchStats').innerHTML = `<span class="pill accent">Сравнений: <b>${C}</b></span><span class="pill ok">Позиция: <b>${pos}</b></span><span class="pill">Тип: <b>2</b></span>`;
+  }
+
+  $('typeTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-type]');
+    if(!b) return;
+    type = b.dataset.type;
+    [...$('typeTabs').querySelectorAll('.tab')].forEach(x => x.classList.toggle('on', x === b));
+    build();
+  });
+  $('go').onclick = build;
+  $('inp').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  $('target').addEventListener('keydown', e => { if(e.key === 'Enter') build(); });
+  build();
+})();
+</script>
+</body>
+</html>

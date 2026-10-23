@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Деревья поиска по шагам — выберите структуру</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="back" href="index.html">← Все разделы</a>
+  <span class="crumb">Деревья</span>
+  <button class="theme" id="themeBtn" type="button" title="Сменить тему">☾</button>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <span class="kicker">Интерактивный тренажёр</span>
+      <h1>Деревья поиска по шагам</h1>
+      <p>Выберите структуру данных, введите свой набор букв — и смотрите, как дерево строится, перестраивается и удаляется. Каждый шаг объясняется: сравнения, балансы, повороты, расщепления и стоимости поиска.</p>
+    </div>
+    <svg class="hero-art" viewBox="0 0 220 172" aria-hidden="true">
+      <line x1="110" y1="32" x2="62" y2="88" stroke="var(--bd)" stroke-width="1.8"/>
+      <line x1="110" y1="32" x2="158" y2="88" stroke="var(--bd)" stroke-width="1.8"/>
+      <line x1="158" y1="88" x2="126" y2="144" stroke="var(--bd)" stroke-width="1.8"/>
+      <line x1="158" y1="88" x2="192" y2="144" stroke="var(--bd)" stroke-width="1.8"/>
+      <circle cx="110" cy="32" r="19" fill="var(--node)" stroke="var(--ac)" stroke-width="2.5"/>
+      <circle cx="62" cy="88" r="19" fill="var(--node)" stroke="var(--bd)" stroke-width="1.5"/>
+      <circle cx="158" cy="88" r="19" fill="var(--ok)"/>
+      <circle cx="126" cy="144" r="19" fill="var(--node)" stroke="var(--bd)" stroke-width="1.5"/>
+      <circle cx="192" cy="144" r="19" fill="var(--node)" stroke="var(--bd)" stroke-width="1.5"/>
+      <g font-family="system-ui,sans-serif" font-size="15" font-weight="600" text-anchor="middle">
+        <text x="110" y="37" fill="var(--tx)">B</text>
+        <text x="62" y="93" fill="var(--tx)">A</text>
+        <text x="158" y="93" fill="#fff">D</text>
+        <text x="126" y="149" fill="var(--tx)">C</text>
+        <text x="192" y="149" fill="var(--tx)">E</text>
+      </g>
+    </svg>
+  </section>
+
+  <div class="section-title">Построение деревьев</div>
+  <nav class="menu">
+    <a class="tile" href="isdp.html">
+      <span class="ic">ИС<br>ДП</span>
+      <div><h3>ИСДП</h3><p>Идеально сбалансированное дерево поиска: делим отсортированный набор пополам.</p><span class="cat">Построение</span></div>
+    </a>
+    <a class="tile" href="sdp.html">
+      <span class="ic">СД<br>П</span>
+      <div><h3>СДП</h3><p>Случайное дерево поиска: вставка в заданном или перемешанном порядке.</p><span class="cat">Построение</span></div>
+    </a>
+    <a class="tile" href="avl.html">
+      <span class="ic">AVL</span>
+      <div><h3>АВЛ-дерево</h3><p>Вставка с балансировкой: пересчёт балансов и повороты LL, RR, LR, RL.</p><span class="cat">Построение</span></div>
+    </a>
+    <a class="tile" href="btree.html">
+      <span class="ic">B</span>
+      <div><h3>Двоичное Б-дерево поиска</h3><p>B-дерево с настраиваемым порядком: расщепление полных узлов и подъём медианы.</p><span class="cat">Построение</span></div>
+    </a>
+    <a class="tile opt" href="optimal-exact.html">
+      <span class="ic">DP</span>
+      <div><h3>Оптимальное дерево — точно</h3><p>Динамическое программирование: минимальная взвешенная стоимость поиска и таблица C[i,j].</p><span class="cat">Оптимальное</span></div>
+    </a>
+    <a class="tile opt" href="optimal-approx.html">
+      <span class="ic">≈</span>
+      <div><h3>Оптимальное дерево — приближённо</h3><p>Два эвристических алгоритма: по частотам и по взвешенной середине. Сравнение с оптимумом.</p><span class="cat">Оптимальное</span></div>
+    </a>
+  </nav>
+
+  <div class="section-title">Удаление</div>
+  <nav class="menu">
+    <a class="tile del" href="sdp-delete.html">
+      <span class="ic">−<br>СДП</span>
+      <div><h3>Удаление из СДП</h3><p>Три случая: лист, один потомок, два потомка. Замена предшественником.</p><span class="cat">Удаление</span></div>
+    </a>
+    <a class="tile del" href="avl-delete.html">
+      <span class="ic">−<br>AVL</span>
+      <div><h3>Удаление из АВЛ-дерева</h3><p>Удаление узла, подъём по пути и балансировка поворотами LL, RR, LR, RL.</p><span class="cat">Удаление</span></div>
+    </a>
+  </nav>
+
+  <div class="card" style="margin-top:18px">
+    <h2>Как пользоваться</h2>
+    <div class="how">
+      <div><b><i>1</i>Введите буквы</b>Например <code>KDBACFGE</code>. Порядок важен для СДП и АВЛ; для ИСДП набор сортируется автоматически.</div>
+      <div><b><i>2</i>Нажимайте «Дальше»</b>Или включите «Авто». Кнопка «В начало» возвращает к первому шагу, ползунок позволяет перейти к любому шагу.</div>
+      <div><b><i>3</i>Читайте объяснение</b>Под деревом — что именно произошло: путь сравнений, баланс, поворот, расщепление или стоимость.</div>
+    </div>
+  </div>
+
+  <footer class="note">Все вычисления выполняются локально в браузере. Ключи сравниваются по коду символа, как в учебных реализациях на C.</footer>
+</main>
+<script src="assets/core.js"></script>
+</body>
+</html>
