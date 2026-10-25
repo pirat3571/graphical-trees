@@ -332,22 +332,24 @@
   TS.initTheme = function(){
     const root = document.documentElement;
     const btn = document.getElementById('themeBtn');
-    function isDark(){
-      return root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    const ORDER = ['light', 'dark', 'amoled'];
+    function current(){
+      if(root.dataset.theme) return root.dataset.theme;
+      return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     function paint(){
-      if(btn){
-        btn.textContent = isDark() ? '☀' : '☾';
-        btn.title = isDark() ? 'Светлая тема' : 'Тёмная тема';
-      }
+      if(!btn) return;
+      const th = current();
+      btn.textContent = th === 'light' ? '☀' : th === 'dark' ? '☾' : '●';
+      btn.title = th === 'light' ? 'Тёмная тема' : th === 'dark' ? 'AMOLED-тема' : 'Светлая тема';
     }
     try{
       const saved = localStorage.getItem('tree-theme');
-      if(saved === 'light' || saved === 'dark') root.dataset.theme = saved;
+      if(ORDER.indexOf(saved) >= 0) root.dataset.theme = saved;
     }catch(e){}
     paint();
     if(btn) btn.addEventListener('click', () => {
-      root.dataset.theme = isDark() ? 'light' : 'dark';
+      root.dataset.theme = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
       try{ localStorage.setItem('tree-theme', root.dataset.theme); }catch(e){}
       paint();
     });
@@ -360,4 +362,109 @@
     canvas.innerHTML = (step.strip || '') + '<div class="tree-host"></div>';
     TS.renderBinary(canvas.querySelector('.tree-host'), step, opts);
   };
+
+  /* ---------- Динамический фон из частиц ---------- */
+  TS.initParticles = function(){
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const canvas = document.createElement('canvas');
+    canvas.id = 'particleBg';
+    canvas.setAttribute('aria-hidden', 'true');
+    document.body.insertBefore(canvas, document.body.firstChild);
+    const ctx = canvas.getContext('2d');
+    if(!ctx) return;
+
+    let W = 0, H = 0, palette = [];
+    function readPalette(){
+      if(document.documentElement.dataset.theme === 'amoled'){
+        palette = ['#ffffff', '#ffffff', '#ffffff', '#ffffff'];
+        return;
+      }
+      const cs = getComputedStyle(document.documentElement);
+      palette = ['--ac', '--ok', '--vio', '--warn'].map(v => cs.getPropertyValue(v).trim());
+    }
+    function resize(){
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    readPalette();
+    resize();
+    window.addEventListener('resize', resize);
+    new MutationObserver(readPalette).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+    try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette); }catch(e){}
+
+    const COUNT = Math.max(36, Math.min(110, Math.round(W * H / 16000)));
+    const parts = [];
+    for(let i = 0; i < COUNT; i++){
+      parts.push({
+        x:Math.random() * W, y:Math.random() * H,
+        vx:(Math.random() - .5) * .4, vy:(Math.random() - .5) * .4,
+        r:1.3 + Math.random() * 1.9,
+        ci:(Math.random() * 4) | 0,
+        a:.16 + Math.random() * .3,
+        k:.8 + Math.random() * .5,
+        in:false
+      });
+    }
+
+    let mx = -1e4, my = -1e4;
+    window.addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; }, {passive:true});
+    document.documentElement.addEventListener('mouseleave', () => { mx = -1e4; my = -1e4; });
+
+    /* Магнитное поле: внутри радиуса — пружина к центру курсора с демпфированием
+       и лёгким броуновским дрожанием. При выходе из поля частица получает
+       дополнительный случайный импульс, который затухает за 1–2 секунды. */
+    const MAGNET = 80, K = .014, DAMP = .085, WANDER = .03, DRAG = .968, MAXV = 18, JITTER = .04, BOOST = 2.5;
+
+    let last = performance.now();
+    function frame(t){
+      const dt = Math.min(2.5, Math.max(.2, (t - last) / 16.667));
+      last = t;
+
+      ctx.clearRect(0, 0, W, H);
+      for(const p of parts){
+        const dx = mx - p.x, dy = my - p.y;
+        const d2 = dx * dx + dy * dy;
+        const inField = d2 < MAGNET * MAGNET;
+        let dmp;
+        if(inField){
+          p.vx += dx * K * p.k * dt + (Math.random() - .5) * JITTER * dt;
+          p.vy += dy * K * p.k * dt + (Math.random() - .5) * JITTER * dt;
+          dmp = Math.pow(1 - DAMP, dt);
+        } else {
+          if(p.in){
+            /* отпускание: дополнительный рывок в случайную сторону —
+               вперёд частицу несёт скорость, набранная при погоне за курсором */
+            const ang = Math.random() * Math.PI * 2;
+            const imp = BOOST + Math.random() * 3;
+            p.vx += Math.cos(ang) * imp;
+            p.vy += Math.sin(ang) * imp;
+          }
+          p.vx += (Math.random() - .5) * WANDER * dt;
+          p.vy += (Math.random() - .5) * WANDER * dt;
+          dmp = Math.pow(DRAG, dt);
+        }
+        p.in = inField;
+        p.vx *= dmp; p.vy *= dmp;
+        const sp = Math.hypot(p.vx, p.vy);
+        if(sp > MAXV){ p.vx *= MAXV / sp; p.vy *= MAXV / sp; }
+        p.x += p.vx * dt; p.y += p.vy * dt;
+        if(p.x < -12) p.x = W + 12; else if(p.x > W + 12) p.x = -12;
+        if(p.y < -12) p.y = H + 12; else if(p.y > H + 12) p.y = -12;
+
+        ctx.globalAlpha = Math.min(.9, p.a + Math.min(.3, sp * .02));
+        ctx.fillStyle = palette[p.ci] || '#3b6fe0';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    TS._particles = parts;
+  };
+  TS.initParticles();
 })();
