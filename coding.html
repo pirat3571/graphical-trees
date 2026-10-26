@@ -189,7 +189,7 @@
       const l = Math.max(0, Math.ceil(e.log - 1e-9));
       const Q = acc;
       const bits = binFrac(Q, Math.max(12, l + 2));
-      const o = {ch:e.ch, n:e.n, p:e.p, log:e.log, l, Q, bits, code:l ? bits.slice(0, l) : ''};
+      const o = {ch:e.ch, n:e.n, p:e.p, occ:e.occ, log:e.log, l, Q, bits, code:l ? bits.slice(0, l) : ''};
       acc += e.p;
       return o;
     });
@@ -202,7 +202,7 @@
       const l = Math.max(0, Math.ceil(e.log - 1e-9)) + 2;
       const Q = acc + e.p / 2;
       const bits = binFrac(Q, Math.max(12, l + 2));
-      const o = {ch:e.ch, n:e.n, p:e.p, log:e.log, l, Q, bits, code:bits.slice(0, l)};
+      const o = {ch:e.ch, n:e.n, p:e.p, occ:e.occ, log:e.log, l, Q, bits, code:bits.slice(0, l)};
       acc += e.p;
       return o;
     });
@@ -210,7 +210,7 @@
   }
 
   function calcFano(sorted){
-    const arr = sorted.map(e => ({ch:e.ch, n:e.n, p:e.p, log:e.log, code:'', l:0}));
+    const arr = sorted.map(e => ({ch:e.ch, n:e.n, p:e.p, occ:e.occ, log:e.log, code:'', l:0}));
     const splits = [];
     (function rec(lo, hi, prefix){
       if(lo > hi) return;
@@ -260,7 +260,7 @@
       walk(n.l, code + '0');
       walk(n.r, code + '1');
     })(root, '');
-    const list = sorted.map(e => ({ch:e.ch, n:e.n, p:e.p, log:e.log, l:(codes[e.ch] || '').length, code:codes[e.ch] || ''}));
+    const list = sorted.map(e => ({ch:e.ch, n:e.n, p:e.p, occ:e.occ, log:e.log, l:(codes[e.ch] || '').length, code:codes[e.ch] || ''}));
     return Object.assign(finish(list), {root, codes, merges});
   }
 
@@ -275,7 +275,7 @@
       const part = k === upTo && partial;
       const cur = part ? ' class="cur"' : '';
       const wt = done || part ? '' : ' class="wt"';
-      h += `<tr${part ? ' class="cur"' : ''}><td>${k + 1}</td><td class="sym">${esc(e.ch)}</td><td>${e.n}</td><td>${f2(e.p)}</td>`
+      h += `<tr${part ? ' class="cur"' : ''}><td>${k + 1}</td><td class="sym">${esc(e.ch)}${e.occ || ''}</td><td>${e.n}</td><td>${f2(e.p)}</td>`
         + `<td${wt}>${done || part ? f3(e.log) : '·'}</td><td${wt}>${done || part ? e.l : '·'}</td>`;
       if(qcol){
         h += `<td${wt}>${done ? (mode === 'gm' ? f3(e.Q) : f2(e.Q)) : '·'}</td><td>${done ? bitsHTML(e.bits, e.l) : '·'}</td>`;
@@ -394,10 +394,16 @@
   function introSteps(orderNote){
     const {chars, N, entries} = DATA;
     const sumP = entries.reduce((s, e) => s + e.p, 0);
+    const seen = new Map();
+    const labeled = chars.map(ch => {
+      const k = (seen.get(ch) || 0) + 1;
+      seen.set(ch, k);
+      return ch + (k > 1 ? '′'.repeat(k - 1) : '');
+    });
     steps.push({
       title:'Исходный набор',
-      text:`Набор: <b>${esc(chars.join(' '))}</b> — ${N} символов, из них различных: <b>${entries.length}</b>.<span class="l">Частота каждого символа даёт оценку вероятности: p<sub>i</sub> = n<sub>i</sub>/${N} с округлением до двух знаков.</span>`,
-      html:`<div class="code-src mono">${esc(chars.join(''))}</div>`
+      text:`Набор: <b>${esc(labeled.join(' '))}</b> — ${N} символов, из них различных: <b>${entries.length}</b>. Повторяющиеся символы помечены штрихами: второе вхождение — ′, третье — ′′ и так далее.<span class="l">Частота каждого символа даёт оценку вероятности: p<sub>i</sub> = n<sub>i</sub>/${N} с округлением до двух знаков.</span>`,
+      html:`<div class="code-src mono">${esc(labeled.join(' '))}</div>`
     });
     steps.push({
       title:'Вероятности символов',
@@ -571,7 +577,10 @@
     chars.forEach(ch => countMap.set(ch, (countMap.get(ch) || 0) + 1));
     const entries = [...countMap.entries()].map(([ch, n], i) => {
       const p = Math.round(n * 100 / N) / 100;
-      return {ch, n, p, i, log:-Math.log2(p)};
+      const occ = n > 1
+        ? `<i class="occ">${esc(ch)}${Array.from({length: n - 1}, (_, k) => ' ' + esc(ch) + '′'.repeat(k + 1)).join('')}</i>`
+        : '';
+      return {ch, n, p, i, occ, log:-Math.log2(p)};
     });
     const sorted = entries.slice().sort((a, b) => b.p - a.p || a.i - b.i);
     DATA = {chars, N, entries, sorted};

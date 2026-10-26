@@ -45,7 +45,6 @@
 /* Liquid glass: светлый кант, блик сверху и подсветка края рядом с курсором */
 :root[data-theme="amoled"] .card,
 :root[data-theme="amoled"] details,
-:root[data-theme="amoled"] .meter-box,
 :root[data-theme="amoled"] .hero,
 :root[data-theme="amoled"] .tile,
 :root[data-theme="amoled"] .topbar .back,
@@ -84,10 +83,10 @@
   color:#fff;
   border-color:rgba(255,255,255,.55);
 }
-/* hero — настоящее liquid glass: преломление фона по карте смещения */
+/* hero — liquid glass: размытие в CSS, преломление добавляет JS-фильтр под размер блока */
 :root[data-theme="amoled"] .hero{
-  backdrop-filter:blur(3px) saturate(170%) url(#lgFilter);
-  -webkit-backdrop-filter:blur(3px) saturate(170%) url(#lgFilter);
+  backdrop-filter:blur(3px) saturate(170%);
+  -webkit-backdrop-filter:blur(3px) saturate(170%);
 }
 /* главные кнопки и активные вкладки в AMOLED — белые, не синие */
 :root[data-theme="amoled"] button.p{
@@ -105,6 +104,11 @@
   color:#000;
 }
 :root[data-theme="amoled"] .tab.on:hover{color:#000}
+/* Ссылки и кнопка «назад» в AMOLED — белые, не синие */
+:root[data-theme="amoled"] main a:not(.tile),
+:root[data-theme="amoled"] .topbar .back{color:#e8ebf2}
+:root[data-theme="amoled"] main a:not(.tile):hover,
+:root[data-theme="amoled"] .topbar .back:hover{color:#fff}
 :root[data-theme="amoled"] .card::after,
 :root[data-theme="amoled"] details::after,
 :root[data-theme="amoled"] .meter-box::after,
@@ -424,6 +428,7 @@ table.ctable{border-collapse:collapse;font-size:13px;margin:0 auto}
 table.ctable th,table.ctable td{border:1px solid var(--bd);padding:4px 9px;text-align:center;white-space:nowrap}
 table.ctable th{color:var(--mut);background:var(--bg);font-weight:600;font-size:11.5px}
 table.ctable td.sym{font-weight:700;font-size:15px}
+table.ctable td.sym i.occ{display:block;font-style:normal;font-weight:600;font-size:9.5px;color:var(--mut);white-space:nowrap;margin-top:1px}
 table.ctable td.wt,table.ctable .wt{color:var(--bd)}
 table.ctable tr.cur td{background:var(--acsoft)}
 table.ctable tr.cur td:first-child{box-shadow:inset 2px 0 0 var(--ac)}
@@ -466,6 +471,20 @@ table.ctable tr.cur td:first-child{box-shadow:inset 2px 0 0 var(--ac)}
 .hchip i{font-style:normal;font-size:10.5px;color:var(--mut)}
 .hchip.sel{border-color:var(--bad);background:var(--badsoft)}
 .hchip.new{border-color:var(--ok);background:var(--oksoft)}
+
+/* ---------- Прямое слияние (MergeSort) ---------- */
+.mrows{display:grid;gap:7px;margin:6px 0 4px}
+.mrow{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px;align-items:center}
+.mlabel{font-weight:700;font-size:14px;color:var(--mut);text-align:center;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.mvals{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.mseries{display:inline-flex;gap:3px;border:1px solid var(--bd);border-radius:9px;padding:3px;background:var(--bg);transition:border-color .12s,background .12s;flex-direction:column}
+.mseries .mchips{display:inline-flex;gap:3px}
+.mseries::after{content:"";display:block;height:4px;border-radius:2px;background:var(--mut);margin-top:3px}
+.mseries.hot{border-color:var(--ac);background:var(--acsoft);box-shadow:0 0 0 1.5px var(--ac)}
+.mseries.hot::after{background:var(--ac);height:5px}
+.mpair{border:1px dashed var(--bd);border-radius:12px;padding:10px 12px 8px;margin-top:10px;overflow-x:auto;background:var(--bg)}
+.mpair-cap{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:4px 0 2px}
+.mpair svg{display:block}
 
 @media(max-width:820px){
   .sort-layout{grid-template-columns:1fr}

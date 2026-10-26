@@ -160,8 +160,8 @@
       run: runQuick
     },
     merge: {
-      name:'MergeSort', ru:'Сортировка слиянием', idea:'Делим массив пополам, рекурсивно сортируем половины и сливаем два упорядоченных отрезка во вспомогательный массив.',
-      best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', mem:'O(n)', stable:'да', moves:'≈ n log n',
+      name:'MergeSort', ru:'Сортировка прямым слиянием', idea:'Список S расщепляется на два подсписка a и b. Их упорядоченные серии попарно сливаются в двойные серии, которые поочерёдно записываются в очереди c₀ и c₁. Затем c₀ переписывается в a, c₁ — в b, и всё повторяется, пока не останется одна серия — это и есть отсортированный список.',
+      best:'O(n log n)', avg:'O(n log n)', worst:'O(n log n)', mem:'O(n)', stable:'да', moves:'2n на каждый проход',
       run: runMerge
     },
     radix: {
@@ -175,6 +175,7 @@
     autoplay: 1100,
     render(canvas, step){
       canvas.classList.remove('compact');
+      if(step.html){ canvas.innerHTML = step.html; return; }
       S.renderSortStep(canvas, step);
       if(step.heap){
         const host = document.createElement('div');
@@ -431,56 +432,174 @@
   }
 
   function runMerge(a){
-    const n = a.length, done = [];
-    function auxHTML(L, R, i, j){
-      const part = (x, from) => x.slice(from).map(c => `<span class="chip">${S.esc(c)}</span>`).join('') || '<span class="meta">∅</span>';
-      return `<b>L:</b> ${part(L, i)} <b>R:</b> ${part(R, j)}`;
+    const n = a.length;
+    function chipHTML(ch){ return `<span class="chip"><b>${S.esc(ch)}</b></span>`; }
+    function seriesHTML(ser, hot){
+      return ser.length ? `<span class="mseries${hot ? ' hot' : ''}"><span class="mchips">${ser.map(v => chipHTML(v)).join('')}</span></span>` : '<span class="meta">∅</span>';
     }
-    function mark(lo, hi){
-      for(let k = lo; k <= hi; k++) if(!done.includes(k)) done.push(k);
+    function unitsHTML(vals){ return vals.length ? vals.map(v => seriesHTML([v])).join('') : '<span class="meta">∅</span>'; }
+    function seriesListHTML(sers){
+      return sers.length ? sers.map(s => seriesHTML(s)).join('') : '<span class="meta">∅</span>';
     }
-    function merge(lo, mid, hi){
-      const L = a.slice(lo, mid + 1), R = a.slice(mid + 1, hi + 1);
-      M += L.length + R.length;
-      rec(`Слияние [${lo}…${mid}] и [${mid + 1}…${hi}]`, `Копируем половины во вспомогательные массивы (${L.length + R.length} записей) и сливаем их по возрастанию.`, {done:done.slice(), aux:auxHTML(L, R, 0, 0), caption:`отрезок [${lo}…${hi}]`});
-      let i = 0, j = 0, k = lo;
-      while(i < L.length && j < R.length){
-        C++;
-        rec('Сравнение голов половин', `Сравниваем «<b>${S.esc(L[i])}</b>» из L и «<b>${S.esc(R[j])}</b>» из R.`, {cmp:[k], done:done.slice(), aux:auxHTML(L, R, i, j)});
-        if(S.code(L[i]) <= S.code(R[j])){
-          a[k] = L[i]; M++;
-          rec('Запись из левой половины', `«<b>${S.esc(L[i])}</b>» ≤ «<b>${S.esc(R[j])}</b>» — переносим левый элемент в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i + 1, j)});
-          i++;
-        } else {
-          a[k] = R[j]; M++;
-          rec('Запись из правой половины', `«<b>${S.esc(R[j])}</b>» меньше — переносим правый элемент в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i, j + 1)});
-          j++;
+    function rowsHTML(pairs){
+      let h = '<div class="mrows">';
+      for(const p of pairs) h += `<div class="mrow"><span class="mlabel">${p.label}</span><div class="mvals">${p.html}</div></div>`;
+      return h + '</div>';
+    }
+    /* увеличенный блок пары с палочками-соединителями, как в презентации */
+    function chipSvg(x, y, ch, hot){
+      return `<rect x="${x}" y="${y}" width="32" height="28" rx="8" fill="${hot ? 'var(--ac)' : 'var(--node)'}" stroke="${hot ? 'var(--ac)' : 'var(--bd)'}" stroke-width="1.3"/>`
+        + `<text x="${x + 16}" y="${y + 19}" text-anchor="middle" font-size="13.5" font-weight="700" fill="${hot ? '#fff' : 'var(--tx)'}">${S.esc(ch)}</text>`;
+    }
+    /* обзор всех пар прохода: элементы a и b с палочками между парами */
+    function allPairsSVG(A, B){
+      const CW = 32, CGAP = 6, PAUSE = 30, TOP = 6, BOT = 74, H = 110;
+      let x = 8, s = '';
+      const n = Math.max(A.length, B.length);
+      for(let k = 0; k < n; k++){
+        const sa = A[k] || [], sb = B[k] || [];
+        sa.forEach((ch, i) => { s += chipSvg(x + i * (CW + CGAP), TOP, ch, false); });
+        sb.forEach((ch, i) => { s += chipSvg(x + i * (CW + CGAP), BOT, ch, false); });
+        for(let i = 0; i < Math.min(sa.length, sb.length); i++){
+          const lx = x + i * (CW + CGAP) + CW / 2;
+          s += `<line x1="${lx}" y1="${TOP + 30}" x2="${lx}" y2="${BOT}" stroke="var(--mut)" stroke-width="2.4"/>`;
         }
-        k++;
+        x += Math.max(sa.length, sb.length, 1) * (CW + CGAP) + PAUSE;
       }
-      while(i < L.length){
-        a[k] = L[i]; M++;
-        rec('Остаток левой половины', `Правая половина закончилась — переносим «<b>${S.esc(L[i])}</b>» в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i + 1, j)});
-        i++; k++;
-      }
-      while(j < R.length){
-        a[k] = R[j]; M++;
-        rec('Остаток правой половины', `Левая половина закончилась — переносим «<b>${S.esc(R[j])}</b>» в позицию ${k}.`, {move:[k], done:done.slice(), aux:auxHTML(L, R, i, j + 1)});
-        j++; k++;
-      }
-      mark(lo, hi);
-      rec(`Отрезок [${lo}…${hi}] слит`, `Элементы отрезка упорядочены. Возвращаемся на уровень выше.`, {done:done.slice(), caption:`отрезок [${lo}…${hi}]`});
+      const W = Math.max(x, 200);
+      return `<div class="mpair"><div class="mpair-cap">пары серий этого прохода</div><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${s}</svg></div>`;
     }
-    function msort(lo, hi){
-      if(lo >= hi) return;
-      const mid = Math.floor((lo + hi) / 2);
-      rec(`Делим [${lo}…${hi}]`, `Середина — ${mid}. Левая часть [${lo}…${mid}], правая [${mid + 1}…${hi}].`, {done:done.slice(), caption:`деление [${lo}…${hi}]`});
-      msort(lo, mid);
-      msort(mid + 1, hi);
-      merge(lo, mid, hi);
+    function pairBlock(sa, sb, hx, hy, out, curLabel){
+      const CW = 32, GAP = 10, TOP = 6, BOT = 74, H1 = 110, H2 = 102;
+      const step = CW + GAP;
+      const pairW = Math.max(sa.length, sb.length) * step + 16;
+      let p = '';
+      for(let k = 0; k < Math.min(sa.length, sb.length); k++){
+        const lx = 8 + k * step + CW / 2;
+        p += `<line x1="${lx}" y1="${TOP + 30}" x2="${lx}" y2="${BOT}" stroke="${k === hx && k === hy ? 'var(--ac)' : 'var(--mut)'}" stroke-width="2.4"/>`;
+      }
+      sa.forEach((ch, k) => { p += chipSvg(8 + k * step, TOP, ch, k === hx); });
+      sb.forEach((ch, k) => { p += chipSvg(8 + k * step, BOT, ch, k === hy); });
+      const pairSvg = `<svg width="${pairW}" height="${H1}" viewBox="0 0 ${pairW} ${H1}">${p}</svg>`;
+      const edgeY = pt => pt.y === TOP ? TOP + 30 : BOT;
+      const outW = Math.max(out.length, 1) * step + 16;
+      let o = '';
+      const pts = out.map((el, k) => ({x: 8 + k * step, y: el.from === 'a' ? TOP : BOT}));
+      for(let k = 1; k < pts.length; k++){
+        const u = pts[k - 1], v = pts[k];
+        o += `<line x1="${u.x + CW / 2}" y1="${edgeY(u)}" x2="${v.x + CW / 2}" y2="${edgeY(v)}" stroke="var(--mut)" stroke-width="2.4"/>`;
+      }
+      out.forEach((el, k) => { o += chipSvg(pts[k].x, pts[k].y, el.v, k === pts.length - 1); });
+      const outSvg = out.length
+        ? `<svg width="${outW}" height="${H2}" viewBox="0 0 ${outW} ${H2}">${o}</svg>`
+        : '<div class="meta" style="padding:26px 8px">очередь пока пуста</div>';
+      return `<div class="mpair"><div class="mpair-cap">пара: серия из a и серия из b</div>${pairSvg}<div class="mpair-cap">результат → ${curLabel}</div>${outSvg}</div>`;
     }
-    msort(0, n - 1);
-    finish(a);
+
+    let A = [], B = [];
+    for(let i = 0; i < n; i++) (i % 2 ? B : A).push([a[i]]);
+    rec('Прямое слияние: расщепляем S на a и b',
+      `Список S из ${n} элементов расщепляем поочерёдно: чётные позиции уходят в список <b>a</b>, нечётные — в <b>b</b>. Каждый элемент — упорядоченная серия длины 1 (палочка под элементом — её длина).<span class="l">Дальше серии сливаются парами в серии удвоенной длины, которые поочерёдно записываются в очереди c₀ и c₁; затем очереди переписываются обратно в a и b — и так, пока не останется одна серия.</span>`,
+      {html: rowsHTML([
+        {label:'S', html: unitsHTML(a.slice())},
+        {label:'a', html: unitsHTML(A.map(s => s[0]))},
+        {label:'b', html: unitsHTML(B.map(s => s[0]))}
+      ])}
+    );
+
+    let pass = 0;
+    while(true){
+      pass++;
+      const c0 = [], c1 = [];
+      let i = 0, j = 0, total = 0;
+      function view(hot, hotC0){
+        const aRest = A.slice(i).map(s => seriesHTML(s)).join('');
+        const bRest = B.slice(j).map(s => seriesHTML(s)).join('');
+        const c0h = c0.map(s => seriesHTML(s)).join('') + (hot && hotC0 ? seriesHTML(hot.map(o => o.v), true) : '');
+        const c1h = c1.map(s => seriesHTML(s)).join('') + (hot && !hotC0 ? seriesHTML(hot.map(o => o.v), true) : '');
+        return rowsHTML([
+          {label:'a', html: aRest || '<span class="meta">∅</span>'},
+          {label:'b', html: bRest || '<span class="meta">∅</span>'},
+          {label:'c₀', html: c0h || '<span class="meta">∅</span>'},
+          {label:'c₁', html: c1h || '<span class="meta">∅</span>'}
+        ]);
+      }
+      const L = A.length ? A[0].length : (B.length ? B[0].length : 1);
+      rec(`Проход ${pass}: сливаем серии длины ${L}`,
+        `Берём по одной серии из a и из b и сливаем их в упорядоченную серию удвоенной длины. Двойные серии поочерёдно записываются в очереди <b>c₀</b> и <b>c₁</b>.<span class="l">Палочки соединяют парные элементы серий a и b — как в схеме метода прямого слияния.</span>`,
+        {html: view() + ((A.length || B.length) ? allPairsSVG(A, B) : '')});
+
+      while(i < A.length || j < B.length){
+        const sa = i < A.length ? A[i++] : null;
+        const sb = j < B.length ? B[j++] : null;
+        const isC0 = total % 2 === 0;
+        const cur = isC0 ? c0 : c1;
+        const curLabel = isC0 ? 'c₀' : 'c₁';
+        if(sa && sb){
+          const out = [];
+          let x = 0, y = 0;
+          while(x < sa.length && y < sb.length){
+            const cx = sa[x], cy = sb[y];
+            const takeA = S.code(cx) <= S.code(cy);
+            const w = takeA ? cx : cy;
+            if(takeA) x++; else y++;
+            C++; M++;
+            out.push({v:w, from:takeA ? 'a' : 'b'});
+            rec(`Сравнение «${cx}» и «${cy}»: «${w}» → ${curLabel}`,
+              takeA
+                ? `Головы серий — «<b>${S.esc(cx)}</b>» (a) и «<b>${S.esc(cy)}</b>» (b): «${S.esc(cx)}» ≤ «${S.esc(cy)}», пишем «<b>${S.esc(w)}</b>» в очередь <b>${curLabel}</b>.<span class="l">+1 сравнение, +1 перемещение.</span>`
+                : `Головы серий — «<b>${S.esc(cx)}</b>» (a) и «<b>${S.esc(cy)}</b>» (b): «${S.esc(cy)}» меньше, пишем «<b>${S.esc(w)}</b>» в очередь <b>${curLabel}</b>.<span class="l">+1 сравнение, +1 перемещение.</span>`,
+              {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+          }
+          while(x < sa.length){
+            const w = sa[x++];
+            M++;
+            out.push({v:w, from:'a'});
+            rec(`Остаток серии a: «${w}» → ${curLabel}`, `Серия из b закончилась — остаток серии a дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+          }
+          while(y < sb.length){
+            const w = sb[y++];
+            M++;
+            out.push({v:w, from:'b'});
+            rec(`Остаток серии b: «${w}» → ${curLabel}`, `Серия из a закончилась — остаток серии b дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+          }
+          cur.push(out.map(o => o.v));
+        } else {
+          const ser = sa || sb;
+          for(let k = 0; k < ser.length; k++) M++;
+          cur.push(ser.slice());
+          rec(`Серия без пары → ${curLabel}`,
+            `Серия «<b>${ser.map(S.esc).join(' ')}</b>» осталась без пары — переписываем её в очередь <b>${curLabel}</b> без изменений (${ser.length} записей).`,
+            {html: view()});
+        }
+        total++;
+      }
+
+      rec(`Проход ${pass}: получено серий — ${total}`,
+        `Двойные серии записаны поочерёдно: в очереди <b>c₀</b> — ${c0.length}, в <b>c₁</b> — ${c1.length}.${total === 1 ? ' Серия всего одна — список полностью отсортирован!' : ' Теперь очереди переписываются обратно в a и b.'}`,
+        {html: view()});
+
+      if(total === 1){
+        const sorted = c0[0];
+        for(let k = 0; k < n; k++) a[k] = sorted[k];
+        M += n;
+        rec('Готово: S ← c₀',
+          `Оставшаяся серия длины ${n} (палочка во всю ширину) переписывается в список S (${n} записей).<span class="l">Проходов: ${pass}. Итоговые счётчики: C = ${C}, M = ${M}.</span>`,
+          {html: rowsHTML([{label:'S', html: seriesHTML(sorted)}])}
+        );
+        finish(a);
+        return;
+      }
+
+      rec(`Переписываем очереди: c₀ → a, c₁ → b`,
+        `Очередь <b>c₀</b> (${c0.length} серий) становится новым списком <b>a</b>, очередь <b>c₁</b> (${c1.length} серий) — новым списком <b>b</b>. Теперь длины серий — до ${L * 2}.`,
+        {html: rowsHTML([
+          {label:'c₀', html: seriesListHTML(c0)},
+          {label:'c₁', html: seriesListHTML(c1)}
+        ])}
+      );
+      A = c0; B = c1;
+    }
   }
 
   function runRadix(a){

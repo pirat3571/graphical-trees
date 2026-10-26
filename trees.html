@@ -15,7 +15,6 @@
 <main>
   <section class="hero">
     <div>
-      <span class="kicker">Интерактивный тренажёр</span>
       <h1>Деревья поиска по шагам</h1>
       <p>Выберите структуру данных, введите свой набор букв — и смотрите, как дерево строится, перестраивается и удаляется. Каждый шаг объясняется: сравнения, балансы, повороты, расщепления и стоимости поиска.</p>
     </div>
@@ -42,11 +41,11 @@
   <div class="section-title">Построение деревьев</div>
   <nav class="menu">
     <a class="tile" href="isdp.html">
-      <span class="ic">ИС<br>ДП</span>
+      <span class="ic" style="font-size: 12px;">ИСДП</span>
       <div><h3>ИСДП</h3><p>Идеально сбалансированное дерево поиска: делим отсортированный набор пополам.</p><span class="cat">Построение</span></div>
     </a>
     <a class="tile" href="sdp.html">
-      <span class="ic">СД<br>П</span>
+      <span class="ic">СДП</span>
       <div><h3>СДП</h3><p>Случайное дерево поиска: вставка в заданном или перемешанном порядке.</p><span class="cat">Построение</span></div>
     </a>
     <a class="tile" href="avl.html">
@@ -62,7 +61,7 @@
       <div><h3>Оптимальное дерево — точно</h3><p>Динамическое программирование: минимальная взвешенная стоимость поиска и таблица C[i,j].</p><span class="cat">Оптимальное</span></div>
     </a>
     <a class="tile opt" href="optimal-approx.html">
-      <span class="ic">≈</span>
+      <span class="ic" style="font-size: 24px; line-height: 0;">≈</span>
       <div><h3>Оптимальное дерево — приближённо</h3><p>Два эвристических алгоритма: по частотам и по взвешенной середине. Сравнение с оптимумом.</p><span class="cat">Оптимальное</span></div>
     </a>
   </nav>
@@ -70,11 +69,11 @@
   <div class="section-title">Удаление</div>
   <nav class="menu">
     <a class="tile del" href="sdp-delete.html">
-      <span class="ic">−<br>СДП</span>
+      <span class="ic">СДП</span>
       <div><h3>Удаление из СДП</h3><p>Три случая: лист, один потомок, два потомка. Замена предшественником.</p><span class="cat">Удаление</span></div>
     </a>
     <a class="tile del" href="avl-delete.html">
-      <span class="ic">−<br>AVL</span>
+      <span class="ic">AVL</span>
       <div><h3>Удаление из АВЛ-дерева</h3><p>Удаление узла, подъём по пути и балансировка поворотами LL, RR, LR, RL.</p><span class="cat">Удаление</span></div>
     </a>
   </nav>

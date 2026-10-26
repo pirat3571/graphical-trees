@@ -380,76 +380,100 @@
     TS.renderBinary(canvas.querySelector('.tree-host'), step, opts);
   };
 
-  /* ---------- Liquid glass: SVG-фильтр преломления для hero ---------- */
+  /* ---------- Liquid glass: SVG-фильтр преломления под размер каждого hero ---------- */
   TS.initLiquidGlass = function(){
-    try{
-      const W = 500, H = 320, RAD = 60, RING = 64;
-      const round = (x, r) => {
+    function mapDataUrl(w, h){
+      const RAD = Math.max(24, Math.round(Math.min(w, h) * .3));
+      const RING = Math.max(26, Math.round(Math.min(w, h) * .22));
+      const rr = (x, a, b, ww, hh, r) => {
         x.beginPath();
-        if(x.roundRect){ x.roundRect.apply(x, r); return; }
-        const [a, b, w, h, rr] = r;
-        x.rect(a, b, w, h);
+        if(x.roundRect){ x.roundRect(a, b, ww, hh, r); return; }
+        x.rect(a, b, ww, hh);
       };
-      /* карта смещения: центр нейтрально-серый, по краю — градиенты
-         (красный по X, зелёный по Y) с мягким нарастанием к краю */
+      /* карта смещения: центр нейтрален, у краёв градиенты (красный — X, зелёный — Y) */
       const grad = document.createElement('canvas');
-      grad.width = W; grad.height = H;
+      grad.width = w; grad.height = h;
       const g = grad.getContext('2d');
-      const gx = g.createLinearGradient(0, 0, W, 0);
+      const gx = g.createLinearGradient(0, 0, w, 0);
       gx.addColorStop(0, '#000'); gx.addColorStop(1, '#f00');
-      g.fillStyle = gx; g.fillRect(0, 0, W, H);
+      g.fillStyle = gx; g.fillRect(0, 0, w, h);
       g.globalCompositeOperation = 'screen';
-      const gy = g.createLinearGradient(0, 0, 0, H);
+      const gy = g.createLinearGradient(0, 0, 0, h);
       gy.addColorStop(0, '#000'); gy.addColorStop(1, '#0f0');
-      g.fillStyle = gy; g.fillRect(0, 0, W, H);
-      /* маска-кольцо с размытием для плавного нарастания смещения */
+      g.fillStyle = gy; g.fillRect(0, 0, w, h);
       const mask = document.createElement('canvas');
-      mask.width = W; mask.height = H;
+      mask.width = w; mask.height = h;
       const m = mask.getContext('2d');
       m.filter = 'blur(' + Math.round(RING * .6) + 'px)';
       m.fillStyle = '#fff';
-      round(m, [0, 0, W, H, RAD]); m.fill();
+      rr(m, 0, 0, w, h, RAD); m.fill();
       m.globalCompositeOperation = 'destination-out';
       m.filter = 'blur(' + Math.round(RING * .45) + 'px)';
-      round(m, [RING, RING, W - 2 * RING, H - 2 * RING, Math.max(0, RAD - RING)]); m.fill();
+      rr(m, RING, RING, w - 2 * RING, h - 2 * RING, Math.max(0, RAD - RING)); m.fill();
       g.globalCompositeOperation = 'destination-in';
       g.drawImage(mask, 0, 0);
-      /* фон — нейтральный серый (без смещения) */
       const base = document.createElement('canvas');
-      base.width = W; base.height = H;
+      base.width = w; base.height = h;
       const bx = base.getContext('2d');
       bx.fillStyle = 'rgb(128,128,128)';
-      bx.fillRect(0, 0, W, H);
+      bx.fillRect(0, 0, w, h);
       bx.drawImage(grad, 0, 0);
-      const dataUrl = base.toDataURL();
+      return base.toDataURL();
+    }
 
-      const NS = 'http://www.w3.org/2000/svg';
-      const svg = document.createElementNS(NS, 'svg');
-      svg.setAttribute('width', '0');
-      svg.setAttribute('height', '0');
-      svg.style.position = 'absolute';
-      const filter = document.createElementNS(NS, 'filter');
-      filter.setAttribute('id', 'lgFilter');
-      filter.setAttribute('x', '0%'); filter.setAttribute('y', '0%');
-      filter.setAttribute('width', '100%'); filter.setAttribute('height', '100%');
-      const feImage = document.createElementNS(NS, 'feImage');
-      feImage.setAttribute('href', dataUrl);
-      feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', dataUrl);
-      feImage.setAttribute('x', '0'); feImage.setAttribute('y', '0');
-      feImage.setAttribute('width', '100%'); feImage.setAttribute('height', '100%');
-      feImage.setAttribute('preserveAspectRatio', 'none');
-      feImage.setAttribute('result', 'map');
-      const feDisp = document.createElementNS(NS, 'feDisplacementMap');
-      feDisp.setAttribute('in', 'SourceGraphic');
-      feDisp.setAttribute('in2', 'map');
-      feDisp.setAttribute('scale', '60');
-      feDisp.setAttribute('xChannelSelector', 'R');
-      feDisp.setAttribute('yChannelSelector', 'G');
-      filter.appendChild(feImage);
-      filter.appendChild(feDisp);
-      svg.appendChild(filter);
-      document.body.appendChild(svg);
-    }catch(e){}
+    let host = null;
+    function build(){
+      try{
+        if(host) host.remove();
+        const NS = 'http://www.w3.org/2000/svg';
+        host = document.createElementNS(NS, 'svg');
+        host.setAttribute('width', '0');
+        host.setAttribute('height', '0');
+        host.style.position = 'absolute';
+        document.querySelectorAll('.hero').forEach((el, k) => {
+          const w = Math.max(60, Math.round(el.offsetWidth));
+          const h = Math.max(60, Math.round(el.offsetHeight));
+          const filter = document.createElementNS(NS, 'filter');
+          const id = 'lgFilter' + k;
+          filter.setAttribute('id', id);
+          filter.setAttribute('filterUnits', 'userSpaceOnUse');
+          filter.setAttribute('primitiveUnits', 'userSpaceOnUse');
+          filter.setAttribute('x', '0');
+          filter.setAttribute('y', '0');
+          filter.setAttribute('width', w);
+          filter.setAttribute('height', h);
+          const url = mapDataUrl(w, h);
+          const feImage = document.createElementNS(NS, 'feImage');
+          feImage.setAttribute('href', url);
+          feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', url);
+          feImage.setAttribute('x', '0');
+          feImage.setAttribute('y', '0');
+          feImage.setAttribute('width', w);
+          feImage.setAttribute('height', h);
+          feImage.setAttribute('preserveAspectRatio', 'none');
+          feImage.setAttribute('result', 'map');
+          const feDisp = document.createElementNS(NS, 'feDisplacementMap');
+          feDisp.setAttribute('in', 'SourceGraphic');
+          feDisp.setAttribute('in2', 'map');
+          feDisp.setAttribute('scale', '48');
+          feDisp.setAttribute('xChannelSelector', 'R');
+          feDisp.setAttribute('yChannelSelector', 'G');
+          filter.appendChild(feImage);
+          filter.appendChild(feDisp);
+          host.appendChild(filter);
+          const bf = 'blur(3px) saturate(170%) url(#' + id + ')';
+          el.style.backdropFilter = bf;
+          el.style.webkitBackdropFilter = bf;
+        });
+        document.body.appendChild(host);
+      }catch(e){}
+    }
+    build();
+    let rt = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(rt);
+      rt = setTimeout(build, 250);
+    });
   };
   TS.initLiquidGlass();
 
