@@ -26,19 +26,81 @@
   color-scheme:dark;
 }
 :root[data-theme="amoled"]{
-  --bg:#000;--card:rgba(255,255,255,.055);--tx:#f4f6fa;--mut:#9aa3b2;--bd:rgba(255,255,255,.16);
+  --bg:#000;--card:rgba(255,255,255,.045);--tx:#f4f6fa;--mut:#9aa3b2;--bd:rgba(255,255,255,.22);
   --ac:#7aa2ff;--acsoft:rgba(122,162,255,.13);--ok:#4cc27f;--oksoft:rgba(76,194,127,.12);
   --bad:#ff6b6b;--badsoft:rgba(255,107,107,.12);--node:rgba(255,255,255,.08);--node2:rgba(255,255,255,.14);
   --warn:#e5b054;--warnsoft:rgba(229,176,84,.12);--vio:#a98cff;--viosoft:rgba(169,140,255,.12);
   --shadow:0 10px 30px rgba(0,0,0,.7);
-  --glass:blur(14px);
+  --glass:blur(8px) saturate(160%);
   color-scheme:dark;
 }
+:root[data-theme="amoled"] ::selection{background:rgba(228,232,240,.92);color:#000}
 :root[data-theme="amoled"] input,
-:root[data-theme="amoled"] select{background:rgba(255,255,255,.055)}
+:root[data-theme="amoled"] select{background:rgba(255,255,255,.05)}
 .card,details,button,.tile,input,select,.meter-box,.topbar .back,.hero{
   backdrop-filter:var(--glass,none);
   -webkit-backdrop-filter:var(--glass,none);
+}
+/* Liquid glass: светлый кант, блик сверху и подсветка края рядом с курсором */
+:root[data-theme="amoled"] .card,
+:root[data-theme="amoled"] details,
+:root[data-theme="amoled"] .meter-box,
+:root[data-theme="amoled"] .hero,
+:root[data-theme="amoled"] .tile,
+:root[data-theme="amoled"] .topbar .back,
+:root[data-theme="amoled"] button{position:relative}
+:root[data-theme="amoled"] .card,
+:root[data-theme="amoled"] details,
+:root[data-theme="amoled"] .meter-box,
+:root[data-theme="amoled"] .hero,
+:root[data-theme="amoled"] .tile,
+:root[data-theme="amoled"] .topbar .back{
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.28),
+    inset 0 -1px 0 rgba(255,255,255,.05),
+    inset 1px 0 0 rgba(255,255,255,.1),
+    inset -1px 0 0 rgba(255,255,255,.1),
+    0 10px 30px rgba(0,0,0,.55);
+}
+:root[data-theme="amoled"] button{box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+/* Наведение в AMOLED: белая подсветка вместо синей */
+:root[data-theme="amoled"] .tile:hover{
+  border-color:rgba(255,255,255,.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -1px 0 rgba(255,255,255,.08),
+    inset 1px 0 0 rgba(255,255,255,.14),
+    inset -1px 0 0 rgba(255,255,255,.14),
+    0 0 26px rgba(255,255,255,.13),
+    0 10px 30px rgba(0,0,0,.55);
+}
+:root[data-theme="amoled"] button:not(.p):hover:not(:disabled){
+  border-color:rgba(255,255,255,.55);
+  color:#fff;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 0 18px rgba(255,255,255,.12);
+}
+:root[data-theme="amoled"] .topbar .back:hover{
+  color:#fff;
+  border-color:rgba(255,255,255,.55);
+}
+:root[data-theme="amoled"] .card::after,
+:root[data-theme="amoled"] details::after,
+:root[data-theme="amoled"] .meter-box::after,
+:root[data-theme="amoled"] .hero::after,
+:root[data-theme="amoled"] .tile::after,
+:root[data-theme="amoled"] .topbar .back::after,
+:root[data-theme="amoled"] button::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  padding:1.5px;
+  background:radial-gradient(240px 240px at var(--gx,-500px) var(--gy,-500px), rgba(255,255,255,.55), rgba(255,255,255,.1) 45%, rgba(255,255,255,0) 72%) fixed;
+  -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  pointer-events:none;
 }
 *{box-sizing:border-box}
 html{scroll-padding-top:16px;background:var(--bg)}
@@ -51,7 +113,8 @@ a{color:var(--ac)}
 .topbar .back{color:var(--mut);text-decoration:none;padding:6px 11px;border:1px solid var(--bd);border-radius:9px;background:var(--card);white-space:nowrap}
 .topbar .back:hover{color:var(--ac);border-color:var(--ac)}
 .crumb{color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.theme{margin-left:auto;padding:5px 10px;font-size:15px;line-height:1.4;border-radius:9px;background:var(--card);color:var(--mut);border:1px solid var(--bd);cursor:pointer}
+.theme{margin-left:auto;padding:5px 10px;font-size:15px;line-height:1.4;border-radius:9px;background:var(--card);color:var(--mut);border:1px solid var(--bd);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.theme svg{width:16px;height:16px;display:block}
 .theme:hover{color:var(--ac);border-color:var(--ac)}
 .lead{color:var(--mut);margin:-4px 0 18px;max-width:78ch}
 .kicker{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--ac);font-weight:700}
