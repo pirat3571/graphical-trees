@@ -83,6 +83,30 @@
     <p style="margin-top:8px">Для цифровой сортировки <code>k</code> — число разрядов ключа, <code>b</code> — основание (здесь 10 десятичных цифр). Для односимвольных ключей число проходов определяется кодом символа.</p>
   </details>
 
+  <details>
+    <summary>Трудоёмкость по характеру входных данных</summary>
+    <p>Формулы для числа перемещений M и сравнений C в зависимости от входа: случайный, отсортированный по возрастанию и по убыванию. Обмен через временную переменную считается за 3 перемещения — так же, как в счётчиках на этой странице.</p>
+    <div class="table-wrap">
+      <table class="cmp effort">
+        <thead><tr><th>Алгоритм</th><th>Случайный</th><th>Возрастающий</th><th>Убывающий</th></tr></thead>
+        <tbody>
+          <tr><td>SelectSort</td><td>M = 3(n−1)<br>C = (n²−n)/2</td><td>M = 3(n−1)<br>C = (n²−n)/2</td><td>M = 3(n−1)<br>C = (n²−n)/2</td></tr>
+          <tr><td>BubbleSort</td><td>M<sub>ср</sub> = 3(n²−n)/4<br>C = (n²−n)/2</td><td>M<sub>min</sub> = 0<br>C = (n²−n)/2</td><td>M<sub>max</sub> = 3(n²−n)/2<br>C = (n²−n)/2</td></tr>
+          <tr><td>ShakerSort</td><td>M<sub>ср</sub> = 3(n²−n)/4<br>C<sub>ср</sub> ≤ (n²−n)/2</td><td>M<sub>min</sub> = 0<br>C<sub>min</sub> = n−1</td><td>M<sub>max</sub> = 3(n²−n)/2<br>C<sub>max</sub> = (n²−n)/2</td></tr>
+          <tr><td>InsertSort</td><td>M<sub>ср</sub> = (n²−n)/4 + n−1<br>C<sub>ср</sub> = (n²−n)/4</td><td>M<sub>min</sub> = 2(n−1)<br>C<sub>min</sub> = n−1</td><td>M<sub>max</sub> = (n²−n)/2 + 2n−2<br>C<sub>max</sub> = (n²−n)/2</td></tr>
+          <tr><td>ShellSort</td><td>M + C = O(n<sup>1.2</sup>)</td><td>M + C = O(n<sup>1.2</sup>)</td><td>M + C = O(n<sup>1.2</sup>)</td></tr>
+          <tr><td>HeapSort</td><td>M = n·log₂(n) + 6.5n − 4<br>C = 2·log₂(n)·n + n + 2</td><td>M = n·log₂(n) + 6.5n − 4<br>C = 2·log₂(n)·n + n + 2</td><td>M = n·log₂(n) + 6.5n − 4<br>C = 2·log₂(n)·n + n + 2</td></tr>
+          <tr><td>QuickSort</td><td>M = n·log₂(n)<br>C = n·log₂(n)</td><td>M = 3(n−1)<br>C = (n²+5n+4)/2</td><td>M = 3(n−1)<br>C = (n²+5n+4)/2</td></tr>
+          <tr><td>MergeSort</td><td>M = n·log₂(n)<br>C = n·log₂(n)</td><td>M = n·log₂(n)<br>C = n·log₂(n)</td><td>M = n·log₂(n)<br>C = n·log₂(n)</td></tr>
+          <tr><td>DigitalSort</td><td>M = const·n<br>сравнений нет</td><td>M = const·n<br>сравнений нет</td><td>M = const·n<br>сравнений нет</td></tr>
+          <tr><td>BSearch1</td><td colspan="3">перестановок нет · C = 2·log₂(n)</td></tr>
+          <tr><td>BSearch2</td><td colspan="3">перестановок нет · C = log₂(n)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px">BSearch1 и BSearch2 — два типа бинарного поиска со страницы <a href="binary-search.html">«Бинарный поиск»</a>: сам массив не переставляется, сравнения считаются на случайном входе.</p>
+  </details>
+
   <nav class="pager">
     <a href="index.html">← Все разделы</a>
     <a href="binary-search.html">Бинарный поиск →</a>

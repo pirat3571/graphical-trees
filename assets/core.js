@@ -380,6 +380,79 @@
     TS.renderBinary(canvas.querySelector('.tree-host'), step, opts);
   };
 
+  /* ---------- Liquid glass: SVG-фильтр преломления для hero ---------- */
+  TS.initLiquidGlass = function(){
+    try{
+      const W = 500, H = 320, RAD = 60, RING = 64;
+      const round = (x, r) => {
+        x.beginPath();
+        if(x.roundRect){ x.roundRect.apply(x, r); return; }
+        const [a, b, w, h, rr] = r;
+        x.rect(a, b, w, h);
+      };
+      /* карта смещения: центр нейтрально-серый, по краю — градиенты
+         (красный по X, зелёный по Y) с мягким нарастанием к краю */
+      const grad = document.createElement('canvas');
+      grad.width = W; grad.height = H;
+      const g = grad.getContext('2d');
+      const gx = g.createLinearGradient(0, 0, W, 0);
+      gx.addColorStop(0, '#000'); gx.addColorStop(1, '#f00');
+      g.fillStyle = gx; g.fillRect(0, 0, W, H);
+      g.globalCompositeOperation = 'screen';
+      const gy = g.createLinearGradient(0, 0, 0, H);
+      gy.addColorStop(0, '#000'); gy.addColorStop(1, '#0f0');
+      g.fillStyle = gy; g.fillRect(0, 0, W, H);
+      /* маска-кольцо с размытием для плавного нарастания смещения */
+      const mask = document.createElement('canvas');
+      mask.width = W; mask.height = H;
+      const m = mask.getContext('2d');
+      m.filter = 'blur(' + Math.round(RING * .6) + 'px)';
+      m.fillStyle = '#fff';
+      round(m, [0, 0, W, H, RAD]); m.fill();
+      m.globalCompositeOperation = 'destination-out';
+      m.filter = 'blur(' + Math.round(RING * .45) + 'px)';
+      round(m, [RING, RING, W - 2 * RING, H - 2 * RING, Math.max(0, RAD - RING)]); m.fill();
+      g.globalCompositeOperation = 'destination-in';
+      g.drawImage(mask, 0, 0);
+      /* фон — нейтральный серый (без смещения) */
+      const base = document.createElement('canvas');
+      base.width = W; base.height = H;
+      const bx = base.getContext('2d');
+      bx.fillStyle = 'rgb(128,128,128)';
+      bx.fillRect(0, 0, W, H);
+      bx.drawImage(grad, 0, 0);
+      const dataUrl = base.toDataURL();
+
+      const NS = 'http://www.w3.org/2000/svg';
+      const svg = document.createElementNS(NS, 'svg');
+      svg.setAttribute('width', '0');
+      svg.setAttribute('height', '0');
+      svg.style.position = 'absolute';
+      const filter = document.createElementNS(NS, 'filter');
+      filter.setAttribute('id', 'lgFilter');
+      filter.setAttribute('x', '0%'); filter.setAttribute('y', '0%');
+      filter.setAttribute('width', '100%'); filter.setAttribute('height', '100%');
+      const feImage = document.createElementNS(NS, 'feImage');
+      feImage.setAttribute('href', dataUrl);
+      feImage.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', dataUrl);
+      feImage.setAttribute('x', '0'); feImage.setAttribute('y', '0');
+      feImage.setAttribute('width', '100%'); feImage.setAttribute('height', '100%');
+      feImage.setAttribute('preserveAspectRatio', 'none');
+      feImage.setAttribute('result', 'map');
+      const feDisp = document.createElementNS(NS, 'feDisplacementMap');
+      feDisp.setAttribute('in', 'SourceGraphic');
+      feDisp.setAttribute('in2', 'map');
+      feDisp.setAttribute('scale', '60');
+      feDisp.setAttribute('xChannelSelector', 'R');
+      feDisp.setAttribute('yChannelSelector', 'G');
+      filter.appendChild(feImage);
+      filter.appendChild(feDisp);
+      svg.appendChild(filter);
+      document.body.appendChild(svg);
+    }catch(e){}
+  };
+  TS.initLiquidGlass();
+
   /* ---------- Динамический фон из частиц ---------- */
   TS.initParticles = function(){
     if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;

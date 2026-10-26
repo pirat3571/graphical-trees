@@ -28,7 +28,7 @@
 :root[data-theme="amoled"]{
   --bg:#000;--card:rgba(255,255,255,.045);--tx:#f4f6fa;--mut:#9aa3b2;--bd:rgba(255,255,255,.22);
   --ac:#7aa2ff;--acsoft:rgba(122,162,255,.13);--ok:#4cc27f;--oksoft:rgba(76,194,127,.12);
-  --bad:#ff6b6b;--badsoft:rgba(255,107,107,.12);--node:rgba(255,255,255,.08);--node2:rgba(255,255,255,.14);
+  --bad:#ff6b6b;--badsoft:rgba(255,107,107,.12);--node:#161a22;--node2:#242a36;
   --warn:#e5b054;--warnsoft:rgba(229,176,84,.12);--vio:#a98cff;--viosoft:rgba(169,140,255,.12);
   --shadow:0 10px 30px rgba(0,0,0,.7);
   --glass:blur(8px) saturate(160%);
@@ -37,6 +37,7 @@
 :root[data-theme="amoled"] ::selection{background:rgba(228,232,240,.92);color:#000}
 :root[data-theme="amoled"] input,
 :root[data-theme="amoled"] select{background:rgba(255,255,255,.05)}
+:root[data-theme="amoled"] .scrub{background:transparent}
 .card,details,button,.tile,input,select,.meter-box,.topbar .back,.hero{
   backdrop-filter:var(--glass,none);
   -webkit-backdrop-filter:var(--glass,none);
@@ -74,7 +75,7 @@
     0 0 26px rgba(255,255,255,.13),
     0 10px 30px rgba(0,0,0,.55);
 }
-:root[data-theme="amoled"] button:not(.p):hover:not(:disabled){
+:root[data-theme="amoled"] button:not(.p):not(.on):hover:not(:disabled){
   border-color:rgba(255,255,255,.55);
   color:#fff;
   box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 0 18px rgba(255,255,255,.12);
@@ -83,6 +84,27 @@
   color:#fff;
   border-color:rgba(255,255,255,.55);
 }
+/* hero — настоящее liquid glass: преломление фона по карте смещения */
+:root[data-theme="amoled"] .hero{
+  backdrop-filter:blur(3px) saturate(170%) url(#lgFilter);
+  -webkit-backdrop-filter:blur(3px) saturate(170%) url(#lgFilter);
+}
+/* главные кнопки и активные вкладки в AMOLED — белые, не синие */
+:root[data-theme="amoled"] button.p{
+  background:#fff;
+  border-color:#fff;
+  color:#000;
+}
+:root[data-theme="amoled"] button.p:hover:not(:disabled){
+  color:#000;
+  filter:brightness(.92);
+}
+:root[data-theme="amoled"] .tab.on{
+  background:#fff;
+  border-color:#fff;
+  color:#000;
+}
+:root[data-theme="amoled"] .tab.on:hover{color:#000}
 :root[data-theme="amoled"] .card::after,
 :root[data-theme="amoled"] details::after,
 :root[data-theme="amoled"] .meter-box::after,
@@ -198,6 +220,22 @@ button:disabled{opacity:.38;cursor:default}
   box-shadow:0 1px 4px rgba(24,39,75,.35);
 }
 .scrub:focus-visible{outline:2px solid var(--acsoft);border-radius:999px}
+/* Выпадающие списки в тёмных темах: тёмный фон и светлый текст пунктов */
+:root[data-theme="dark"] option,
+:root[data-theme="amoled"] option{background:#1d222b;color:#e8ebf2}
+:root[data-theme="dark"] option:checked,
+:root[data-theme="amoled"] option:checked{background:#31405f;color:#fff}
+:root[data-theme="amoled"] .scrub::-webkit-slider-thumb{
+  background:#fff;
+  border-color:#000;
+  box-shadow:0 0 10px rgba(255,255,255,.4);
+}
+:root[data-theme="amoled"] .scrub::-moz-range-thumb{
+  background:#fff;
+  border-color:#000;
+  box-shadow:0 0 10px rgba(255,255,255,.4);
+}
+:root[data-theme="amoled"] .scrub::-moz-range-progress{background:rgba(255,255,255,.55)}
 .canvas{overflow-x:auto;min-height:200px;padding:4px 0 2px;overscroll-behavior-x:contain}
 .canvas.compact{min-height:0;padding-bottom:0}
 .canvas.compact .tree-host{min-height:0}
@@ -280,8 +318,9 @@ footer.note{color:var(--mut);font-size:12.5px;text-align:center;margin-top:26px}
 .meter-delta{margin-top:9px;font-size:12.5px;color:var(--mut);line-height:1.45;min-height:2.7em}
 .meter-delta b{color:var(--tx);font-variant-numeric:tabular-nums}
 .meter-note{margin-top:9px;padding-top:9px;border-top:1px solid var(--bd);font-size:11.5px;color:var(--mut);line-height:1.4}
-.bars{display:flex;align-items:flex-end;justify-content:center;gap:6px;height:236px;padding:24px 6px 0;overflow-x:auto;overscroll-behavior-x:contain}
-.bar{flex:1 1 0;min-width:26px;max-width:58px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;position:relative}
+.bars{display:flex;align-items:flex-end;justify-content:center;gap:5px;height:236px;padding:24px 3px 0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.bars::-webkit-scrollbar{display:none}
+.bar{flex:1 1 0;min-width:24px;max-width:56px;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;position:relative}
 .bar .col{width:100%;border:1px solid var(--bd);border-radius:7px 7px 3px 3px;background:var(--node);display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px;transition:background .12s,border-color .12s,outline-color .12s;outline:2px solid transparent;outline-offset:1px}
 .bar .col b{font-size:15px;font-weight:700;color:var(--tx);line-height:1}
 .bar .ix{font-size:10.5px;color:var(--mut);font-variant-numeric:tabular-nums;line-height:1}
