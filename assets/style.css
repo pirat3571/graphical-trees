@@ -34,6 +34,7 @@
   --glass:blur(8px) saturate(160%);
   color-scheme:dark;
 }
+:root[data-theme="amoled"] input:focus{border-color:white}
 :root[data-theme="amoled"] ::selection{background:rgba(228,232,240,.92);color:#000}
 :root[data-theme="amoled"] input,
 :root[data-theme="amoled"] select{background:rgba(255,255,255,.05)}

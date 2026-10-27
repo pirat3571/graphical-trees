@@ -451,49 +451,42 @@
       return `<rect x="${x}" y="${y}" width="32" height="28" rx="8" fill="${hot ? 'var(--ac)' : 'var(--node)'}" stroke="${hot ? 'var(--ac)' : 'var(--bd)'}" stroke-width="1.3"/>`
         + `<text x="${x + 16}" y="${y + 19}" text-anchor="middle" font-size="13.5" font-weight="700" fill="${hot ? '#fff' : 'var(--tx)'}">${S.esc(ch)}</text>`;
     }
-    /* обзор всех пар прохода: элементы a и b с палочками между парами */
-    function allPairsSVG(A, B){
-      const CW = 32, CGAP = 6, PAUSE = 30, TOP = 6, BOT = 74, H = 110;
+    /* линия на каждое сравнение: между головами серий a (сверху) и b (снизу), как в конспекте */
+    const CW = 32, STEP = 42, TOP = 6, BOT = 74, H = 110;
+    function cmpLine(x1, x2, hot){
+      return `<line x1="${x1}" y1="${TOP + 28}" x2="${x2}" y2="${BOT}" stroke="${hot ? 'var(--ac)' : 'var(--mut)'}" stroke-width="2.4" stroke-linecap="round"/>`;
+    }
+    /* обзор всех пар прохода; если переданы сравнения — рисуем и все линии */
+    function allPairsSVG(A, B, cmpsAll){
+      const PAUSE = 24;
       let x = 8, s = '';
       const n = Math.max(A.length, B.length);
       for(let k = 0; k < n; k++){
         const sa = A[k] || [], sb = B[k] || [];
-        sa.forEach((ch, i) => { s += chipSvg(x + i * (CW + CGAP), TOP, ch, false); });
-        sb.forEach((ch, i) => { s += chipSvg(x + i * (CW + CGAP), BOT, ch, false); });
-        for(let i = 0; i < Math.min(sa.length, sb.length); i++){
-          const lx = x + i * (CW + CGAP) + CW / 2;
-          s += `<line x1="${lx}" y1="${TOP + 30}" x2="${lx}" y2="${BOT}" stroke="var(--mut)" stroke-width="2.4"/>`;
-        }
-        x += Math.max(sa.length, sb.length, 1) * (CW + CGAP) + PAUSE;
+        if(cmpsAll && cmpsAll[k]) cmpsAll[k].forEach(c => { s += cmpLine(x + c.i * STEP + CW / 2, x + c.j * STEP + CW / 2, false); });
+        sa.forEach((ch, i) => { s += chipSvg(x + i * STEP, TOP, ch, false); });
+        sb.forEach((ch, i) => { s += chipSvg(x + i * STEP, BOT, ch, false); });
+        x += Math.max(sa.length, sb.length, 1) * STEP + PAUSE;
       }
       const W = Math.max(x, 200);
-      return `<div class="mpair"><div class="mpair-cap">пары серий этого прохода</div><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${s}</svg></div>`;
+      const cap = cmpsAll ? 'все сравнения этого прохода' : 'пары серий этого прохода';
+      return `<div class="mpair"><div class="mpair-cap">${cap}</div><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${s}</svg></div>`;
     }
-    function pairBlock(sa, sb, hx, hy, out, curLabel){
-      const CW = 32, GAP = 10, TOP = 6, BOT = 74, H1 = 110, H2 = 102;
-      const step = CW + GAP;
-      const pairW = Math.max(sa.length, sb.length) * step + 16;
+    function pairBlock(sa, sb, cmps, hx, hy, out, curLabel){
+      const H2 = 44;
+      const pairW = Math.max(sa.length, sb.length) * STEP + 16;
       let p = '';
-      for(let k = 0; k < Math.min(sa.length, sb.length); k++){
-        const lx = 8 + k * step + CW / 2;
-        p += `<line x1="${lx}" y1="${TOP + 30}" x2="${lx}" y2="${BOT}" stroke="${k === hx && k === hy ? 'var(--ac)' : 'var(--mut)'}" stroke-width="2.4"/>`;
-      }
-      sa.forEach((ch, k) => { p += chipSvg(8 + k * step, TOP, ch, k === hx); });
-      sb.forEach((ch, k) => { p += chipSvg(8 + k * step, BOT, ch, k === hy); });
-      const pairSvg = `<svg width="${pairW}" height="${H1}" viewBox="0 0 ${pairW} ${H1}">${p}</svg>`;
-      const edgeY = pt => pt.y === TOP ? TOP + 30 : BOT;
-      const outW = Math.max(out.length, 1) * step + 16;
+      cmps.forEach((c, k) => { p += cmpLine(8 + c.i * STEP + CW / 2, 8 + c.j * STEP + CW / 2, k === cmps.length - 1); });
+      sa.forEach((ch, k) => { p += chipSvg(8 + k * STEP, TOP, ch, k === hx); });
+      sb.forEach((ch, k) => { p += chipSvg(8 + k * STEP, BOT, ch, k === hy); });
+      const pairSvg = `<svg width="${pairW}" height="${H}" viewBox="0 0 ${pairW} ${H}">${p}</svg>`;
+      const outW = Math.max(out.length, 1) * STEP + 16;
       let o = '';
-      const pts = out.map((el, k) => ({x: 8 + k * step, y: el.from === 'a' ? TOP : BOT}));
-      for(let k = 1; k < pts.length; k++){
-        const u = pts[k - 1], v = pts[k];
-        o += `<line x1="${u.x + CW / 2}" y1="${edgeY(u)}" x2="${v.x + CW / 2}" y2="${edgeY(v)}" stroke="var(--mut)" stroke-width="2.4"/>`;
-      }
-      out.forEach((el, k) => { o += chipSvg(pts[k].x, pts[k].y, el.v, k === pts.length - 1); });
+      out.forEach((el, k) => { o += chipSvg(8 + k * STEP, 6, el.v, k === out.length - 1); });
       const outSvg = out.length
         ? `<svg width="${outW}" height="${H2}" viewBox="0 0 ${outW} ${H2}">${o}</svg>`
-        : '<div class="meta" style="padding:26px 8px">очередь пока пуста</div>';
-      return `<div class="mpair"><div class="mpair-cap">пара: серия из a и серия из b</div>${pairSvg}<div class="mpair-cap">результат → ${curLabel}</div>${outSvg}</div>`;
+        : '<div class="meta" style="padding:10px 8px">очередь пока пуста</div>';
+      return `<div class="mpair"><div class="mpair-cap">сравнения в паре: серия из a и серия из b</div>${pairSvg}<div class="mpair-cap">результат → ${curLabel}</div>${outSvg}</div>`;
     }
 
     let A = [], B = [];
@@ -510,7 +503,7 @@
     let pass = 0;
     while(true){
       pass++;
-      const c0 = [], c1 = [];
+      const c0 = [], c1 = [], passCmps = [];
       let i = 0, j = 0, total = 0;
       function view(hot, hotC0){
         const aRest = A.slice(i).map(s => seriesHTML(s)).join('');
@@ -536,12 +529,14 @@
         const cur = isC0 ? c0 : c1;
         const curLabel = isC0 ? 'c₀' : 'c₁';
         if(sa && sb){
-          const out = [];
+          const out = [], cmps = [];
+          passCmps[i - 1] = cmps;
           let x = 0, y = 0;
           while(x < sa.length && y < sb.length){
             const cx = sa[x], cy = sb[y];
             const takeA = S.code(cx) <= S.code(cy);
             const w = takeA ? cx : cy;
+            cmps.push({i: x, j: y});
             if(takeA) x++; else y++;
             C++; M++;
             out.push({v:w, from:takeA ? 'a' : 'b'});
@@ -549,19 +544,19 @@
               takeA
                 ? `Головы серий — «<b>${S.esc(cx)}</b>» (a) и «<b>${S.esc(cy)}</b>» (b): «${S.esc(cx)}» ≤ «${S.esc(cy)}», пишем «<b>${S.esc(w)}</b>» в очередь <b>${curLabel}</b>.<span class="l">+1 сравнение, +1 перемещение.</span>`
                 : `Головы серий — «<b>${S.esc(cx)}</b>» (a) и «<b>${S.esc(cy)}</b>» (b): «${S.esc(cy)}» меньше, пишем «<b>${S.esc(w)}</b>» в очередь <b>${curLabel}</b>.<span class="l">+1 сравнение, +1 перемещение.</span>`,
-              {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+              {html: view(out, isC0) + pairBlock(sa, sb, cmps, x, y, out, curLabel)});
           }
           while(x < sa.length){
             const w = sa[x++];
             M++;
             out.push({v:w, from:'a'});
-            rec(`Остаток серии a: «${w}» → ${curLabel}`, `Серия из b закончилась — остаток серии a дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+            rec(`Остаток серии a: «${w}» → ${curLabel}`, `Серия из b закончилась — остаток серии a дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, cmps, x, y, out, curLabel)});
           }
           while(y < sb.length){
             const w = sb[y++];
             M++;
             out.push({v:w, from:'b'});
-            rec(`Остаток серии b: «${w}» → ${curLabel}`, `Серия из a закончилась — остаток серии b дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, x, y, out, curLabel)});
+            rec(`Остаток серии b: «${w}» → ${curLabel}`, `Серия из a закончилась — остаток серии b дописываем в очередь <b>${curLabel}</b> без сравнений.`, {html: view(out, isC0) + pairBlock(sa, sb, cmps, x, y, out, curLabel)});
           }
           cur.push(out.map(o => o.v));
         } else {
@@ -577,7 +572,7 @@
 
       rec(`Проход ${pass}: получено серий — ${total}`,
         `Двойные серии записаны поочерёдно: в очереди <b>c₀</b> — ${c0.length}, в <b>c₁</b> — ${c1.length}.${total === 1 ? ' Серия всего одна — список полностью отсортирован!' : ' Теперь очереди переписываются обратно в a и b.'}`,
-        {html: view()});
+        {html: view() + allPairsSVG(A, B, passCmps)});
 
       if(total === 1){
         const sorted = c0[0];
