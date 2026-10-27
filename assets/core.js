@@ -363,13 +363,37 @@
 
   /* ---------- Позиция курсора для подсветки краёв стекла ---------- */
   TS.initGlassCursor = function(){
-    const s = document.documentElement.style;
-    s.setProperty('--gx', '-500px');
-    s.setProperty('--gy', '-500px');
+    if(!matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    const root = document.documentElement;
+    const SEL = '.card,details,.meter-box,.hero,.tile,.topbar .back,button';
+    const R = 300;
+    let els = null, lit = new Set(), px = -1e4, py = -1e4, raf = 0;
+    /* список элементов кэшируем: пересобираем только при изменении DOM */
+    new MutationObserver(() => { els = null; }).observe(document.body, {childList:true, subtree:true});
+    function clear(){
+      lit.forEach(el => { el.style.removeProperty('--gx'); el.style.removeProperty('--gy'); });
+      lit.clear();
+    }
+    function apply(){
+      raf = 0;
+      if(root.dataset.theme !== 'amoled'){ clear(); return; }
+      if(!els) els = Array.from(document.querySelectorAll(SEL));
+      const next = new Set();
+      for(const el of els){
+        const r = el.getBoundingClientRect();
+        if(r.bottom < py - R || r.top > py + R || r.right < px - R || r.left > px + R) continue;
+        el.style.setProperty('--gx', px + 'px');
+        el.style.setProperty('--gy', py + 'px');
+        next.add(el);
+      }
+      lit.forEach(el => { if(!next.has(el)){ el.style.removeProperty('--gx'); el.style.removeProperty('--gy'); } });
+      lit = next;
+    }
     window.addEventListener('pointermove', e => {
-      s.setProperty('--gx', e.clientX + 'px');
-      s.setProperty('--gy', e.clientY + 'px');
+      px = e.clientX; py = e.clientY;
+      if(!raf) raf = requestAnimationFrame(apply);
     }, {passive:true});
+    root.addEventListener('mouseleave', () => { px = py = -1e4; if(!raf) raf = requestAnimationFrame(apply); });
   };
   TS.initGlassCursor();
 
@@ -424,7 +448,10 @@
     let host = null;
     function build(){
       try{
-        if(host) host.remove();
+        if(host){ host.remove(); host = null; }
+        document.querySelectorAll('.hero').forEach(el => { el.style.backdropFilter = ''; el.style.webkitBackdropFilter = ''; });
+        /* фильтр преломления дорогой: нужен только в AMOLED и только с мышью */
+        if(document.documentElement.dataset.theme !== 'amoled' || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
         const NS = 'http://www.w3.org/2000/svg';
         host = document.createElementNS(NS, 'svg');
         host.setAttribute('width', '0');
@@ -474,6 +501,8 @@
       clearTimeout(rt);
       rt = setTimeout(build, 250);
     });
+    new MutationObserver(() => { clearTimeout(rt); rt = setTimeout(build, 50); })
+      .observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
   };
   TS.initLiquidGlass();
 
@@ -487,9 +516,14 @@
     const ctx = canvas.getContext('2d');
     if(!ctx) return;
 
-    let W = 0, H = 0, palette = [];
+    let W = 0, H = 0, palette = [], amoled = false, activeN = 0, MINFRAME = 0;
     function readPalette(){
-      if(document.documentElement.dataset.theme === 'amoled'){
+      amoled = document.documentElement.dataset.theme === 'amoled';
+      /* в AMOLED под стеклом пересчитывается размытие каждый кадр — облегчаем: 30 к/с и меньше частиц */
+      MINFRAME = amoled ? 15 : 0;
+      activeN = typeof parts !== 'undefined' ? (amoled ? Math.min(parts.length, 60) : parts.length) : 0;
+      if(canvas.width) resize();
+      if(amoled){
         palette = ['#ffffff', '#ffffff', '#ffffff', '#ffffff'];
         return;
       }
@@ -497,12 +531,13 @@
       palette = ['--ac', '--ok', '--vio', '--warn'].map(v => cs.getPropertyValue(v).trim());
     }
     function resize(){
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const dpr = Math.min(amoled ? 1.5 : 2, window.devicePixelRatio || 1);
       W = window.innerWidth; H = window.innerHeight;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
+    const parts = [];
     readPalette();
     resize();
     window.addEventListener('resize', resize);
@@ -510,7 +545,6 @@
     try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readPalette); }catch(e){}
 
     const COUNT = Math.max(36, Math.min(110, Math.round(W * H / 16000)));
-    const parts = [];
     for(let i = 0; i < COUNT; i++){
       parts.push({
         x:Math.random() * W, y:Math.random() * H,
@@ -523,6 +557,7 @@
       });
     }
 
+    activeN = amoled ? Math.min(parts.length, 60) : parts.length;
     let mx = -1e4, my = -1e4;
     window.addEventListener('pointermove', e => { mx = e.clientX; my = e.clientY; }, {passive:true});
     document.documentElement.addEventListener('mouseleave', () => { mx = -1e4; my = -1e4; });
@@ -534,11 +569,13 @@
 
     let last = performance.now();
     function frame(t){
+      if(t - last < MINFRAME){ requestAnimationFrame(frame); return; }
       const dt = Math.min(2.5, Math.max(.2, (t - last) / 16.667));
       last = t;
 
       ctx.clearRect(0, 0, W, H);
-      for(const p of parts){
+      for(let pi = 0; pi < activeN; pi++){
+        const p = parts[pi];
         const dx = mx - p.x, dy = my - p.y;
         const d2 = dx * dx + dy * dy;
         const inField = d2 < MAGNET * MAGNET;
