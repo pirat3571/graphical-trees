@@ -463,7 +463,9 @@ table.ctable tr.cur td:first-child{box-shadow:inset 2px 0 0 var(--ac)}
 .code-cmp{display:grid;gap:6px}
 .canvas .code-cmp{margin-top:16px}
 .cmp-row{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--bd);border-radius:9px;padding:6px 10px;background:var(--bg);font-size:13px;color:var(--mut)}
-.cmp-row .cr{display:flex;align-items:baseline;gap:7px;white-space:nowrap}
+.cmp-row .cr{display:flex;align-items:baseline;gap:7px;white-space:nowrap;flex:none}
+.cmp-row>span:first-child{min-width:0}
+.cmp-row.hrow>span:first-child{font-size:12px}
 .cmp-row b{color:var(--tx);font-variant-numeric:tabular-nums;font-size:14px}
 .cmp-row i{font-style:normal;font-size:11px;color:var(--mut)}
 .cmp-row.cur{border-color:var(--ac);background:var(--acsoft)}
