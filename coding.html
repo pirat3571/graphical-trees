@@ -395,7 +395,7 @@
   }
 
   function cmpHTML(){
-    const order = [['shannon','Шеннон'],['fano','Фано'],['huffman','Хаффман'],['gm','Гилберт—Мур']];
+    const order = [['shannon','Шеннон'],['fano','Фано'],['huffman','Хаффман'],['gm','Гилберт-Мур']];
     const minL = Math.min.apply(null, order.map(o => ALL[o[0]].L));
     let h = '<div class="code-cmp">'
       + `<div class="cmp-row hrow"><span>Энтропия H</span><span class="cr"><b>${f3(ALL.H)}</b><i>предел сжатия</i></span></div>`;
@@ -844,7 +844,7 @@
     kEl.style.color = kr === null ? '' : (kr <= 1 + 1e-9 ? 'var(--ok)' : 'var(--bad)');
     $('mD').textContent = f3(Lv - H);
     $('mNote').innerHTML = `H = −Σp<sub>i</sub>·log₂p<sub>i</sub> — теоретический предел. L = Σp<sub>i</sub>·L<sub>i</sub>. Крафт: Σ2<sup>−L<sub>i</sub></sup> ≤ 1. Для побуквенных кодов всё считается по p<sub>i</sub>, округлённым до 0,01.${isA ? ' Для арифметического кода L — число бит кода, делённое на длину сообщения.' : ''}`;
-    const order = [['shannon','Шеннон'],['fano','Фано'],['huffman','Хаффман'],['gm','Гилберт—Мур']];
+    const order = [['shannon','Шеннон'],['fano','Фано'],['huffman','Хаффман'],['gm','Гилберт-Мур']];
     const minL = Math.min.apply(null, order.map(o => ALL[o[0]].L));
     $('cmpBox').innerHTML = '<div class="cmp-title">Сравнение кодов</div>'
       + `<div class="cmp-row hrow"><span>H (энтропия)</span><span class="cr"><b>${f3(H)}</b><i>предел</i></span></div>`
@@ -853,7 +853,7 @@
           const best = Math.abs(c.L - minL) < 1e-9 ? ' best' : '';
           return `<div class="cmp-row${k === key ? ' cur' : ''}${best}"><span>${label}</span><span class="cr"><b>${f3(c.L)}</b><i>−H: ${f3(c.L - H)}</i></span></div>`;
         }).join('')
-      + (isA ? `<div class="cmp-row cur"><span>Арифметический</span><span class="cr"><b>${f3(Lv)}</b><i>бит/симв. сообщения</i></span></div>` : '');
+      + (isA ? `<div class="cmp-row cur"><span>Арифм.</span><span class="cr"><b>${f3(Lv)}</b><i>бит/символ</i></span></div>` : '');
   }
 
   function build(){
